@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CarouselCard from "./CarouselCard";
 import { playClickSFX } from "@/lib/sfx";
 import {
+  formatPriceMMK,
   getFirstAvailableKit,
   getJerseyKitPrice,
   isJerseyKitAvailable,
@@ -226,14 +227,15 @@ export default function Carousel3D({
       <div className="grid w-full max-w-4xl grid-cols-3 items-center gap-3 mx-auto mt-2.5 z-30 px-4">
         <div className="justify-self-start text-left leading-none">
           <span className="text-[9px] text-muted-foreground block uppercase tracking-[0.2em] font-mono">Premium Retail</span>
-          <span className="text-lg font-bold text-primary font-display sm:text-xl">
-            ${selectedPrice.toFixed(2)}
+          <span className="text-base font-bold text-primary font-display sm:text-xl">
+            {formatPriceMMK(selectedPrice)}
           </span>
         </div>
 
         <div className="col-start-2 flex items-center justify-center gap-4 md:gap-5">
           <button
             onClick={prev}
+            aria-label="Previous jersey"
             className="w-10 h-10 rounded-full border border-border hover:border-primary hover:text-primary flex items-center justify-center transition-all bg-card/40 active:scale-90 md:h-11 md:w-11"
           >
             <ChevronLeft size={16} />
@@ -243,6 +245,7 @@ export default function Carousel3D({
             {jerseys.map((_, i) => (
               <button
                 key={i}
+                aria-label={`Show jersey ${i + 1}`}
                 onClick={() => {
                   playClickSFX(300 + i * 40);
                   setCurrentIndex(i);
@@ -256,6 +259,7 @@ export default function Carousel3D({
 
           <button
             onClick={next}
+            aria-label="Next jersey"
             className="w-10 h-10 rounded-full border border-border hover:border-primary hover:text-primary flex items-center justify-center transition-all bg-card/40 active:scale-90 md:h-11 md:w-11"
           >
             <ChevronRight size={16} />

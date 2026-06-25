@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
-import { jerseys } from "@/lib/jerseys";
+import { formatPriceMMK, jerseys } from "@/lib/jerseys";
 
 export default function Shop() {
   const loading = false;
@@ -120,7 +120,7 @@ export default function Shop() {
                         <h3 className="font-bold font-display text-sm mb-1 group-hover:text-primary transition-colors">{jersey.name}</h3>
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground text-xs font-mono">{jersey.team}</span>
-                          <span className="text-primary font-bold font-display">${jersey.price?.toFixed(2)}</span>
+                          <span className="text-primary font-bold font-display">{formatPriceMMK(jersey.price)}</span>
                         </div>
                       </div>
                     </div>

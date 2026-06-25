@@ -128,3 +128,36 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  body:not(:has([data-admin-page])) {
+    font-size: 14px;
+  }
+
+  body:not(:has([data-admin-page])) .text-\[9px\],
+  body:not(:has([data-admin-page])) .text-\[10px\],
+  body:not(:has([data-admin-page])) .text-xs,
+  body:not(:has([data-admin-page])) .text-sm,
+  body:not(:has([data-admin-page])) .text-base {
+    font-size: 14px;
+    line-height: 1.45rem;
+  }
+}
+
+@media print {
+  body:has(#admin-print-document) * {
+    visibility: hidden;
+  }
+
+  body:has(#admin-print-document) #admin-print-document,
+  body:has(#admin-print-document) #admin-print-document * {
+    visibility: visible;
+  }
+
+  body:has(#admin-print-document) #admin-print-document {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 18mm;
+  }
+}

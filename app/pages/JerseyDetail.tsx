@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Minus, Plus, ShoppingBag } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
-import PerformanceBar from "@/components/jersey/PerformanceBar";
-import OrderPanel from "@/components/jersey/OrderPanel";
+import { useCart } from "@/lib/CartContext";
 import {
+  formatPriceMMK,
   getJerseyById,
   getJerseyKitImage,
   getJerseyKitPrice,
@@ -22,9 +22,14 @@ import {
 export default function JerseyDetail({ id }: { id: string }) {
   const jersey: Jersey | null = getJerseyById(id);
   const loading = false;
-  const [showOrder, setShowOrder] = useState(false);
+  const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState("front");
   const [selectedKit, setSelectedKit] = useState<KitVariant>("home");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [customName, setCustomName] = useState("");
+  const [customNumber, setCustomNumber] = useState("");
+  const [added, setAdded] = useState(false);
 
   if (loading) {
     return (
@@ -51,7 +56,6 @@ export default function JerseyDetail({ id }: { id: string }) {
 
   const specs = [
     { label: "Fabric", value: jersey.fabric },
-    { label: "Weight", value: `${jersey.weight_gsm} GSM` },
     { label: "Season", value: jersey.season },
     { label: "Sizes", value: jersey.sizes?.join(" / ") },
   ].filter((s) => s.value);
@@ -60,6 +64,21 @@ export default function JerseyDetail({ id }: { id: string }) {
   const displayImage = activeImage === "front" ? kitImage : (jersey.image_back || kitImage);
   const imageFilter = `drop-shadow(0 25px 40px rgba(0,0,0,0.34)) ${kitImageFilters[selectedKit]}`;
   const selectedPrice = getJerseyKitPrice(jersey, selectedKit);
+
+  const handleAddToCart = () => {
+    if (!selectedSize) return;
+    addItem({
+      jerseyId: jersey.id,
+      kit: selectedKit,
+      size: selectedSize,
+      quantity,
+      unitPrice: selectedPrice,
+      customName,
+      customNumber,
+    });
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 1800);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -176,16 +195,7 @@ export default function JerseyDetail({ id }: { id: string }) {
               </p>
 
               <div className="flex items-baseline gap-3 mt-5">
-                <span className="text-3xl font-bold text-primary font-display">${selectedPrice.toFixed(2)}</span>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-mono">USD</span>
-              </div>
-
-              {/* Performance Matrix */}
-              <div className="mt-6 p-5 bg-card border border-border rounded-xl space-y-4">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted-foreground mb-4">Performance Matrix</h3>
-                {jersey.breathability && <PerformanceBar label="Breathability" value={jersey.breathability} delay={0.1} />}
-                {jersey.durability && <PerformanceBar label="Durability" value={jersey.durability} delay={0.2} />}
-                {jersey.moisture_wicking && <PerformanceBar label="Moisture Wicking" value={jersey.moisture_wicking} delay={0.3} />}
+                <span className="text-3xl font-bold text-primary font-display">{formatPriceMMK(selectedPrice)}</span>
               </div>
 
               {/* Technical Specs */}
@@ -198,14 +208,94 @@ export default function JerseyDetail({ id }: { id: string }) {
                 ))}
               </div>
 
+              <div className="mt-6 border-t border-border pt-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">Select size</h3>
+                  <Link href="/contact" className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground underline underline-offset-4 hover:text-foreground">
+                    Sizing help
+                  </Link>
+                </div>
+                <div className="mt-3 grid grid-cols-5 gap-2">
+                  {jersey.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSelectedSize(size)}
+                      className={`h-10 rounded-lg border text-xs font-semibold transition-colors ${
+                        selectedSize === size
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Shirt name <span className="normal-case tracking-normal">(optional)</span>
+                    <input
+                      value={customName}
+                      onChange={(event) => setCustomName(event.target.value.slice(0, 12).toUpperCase())}
+                      placeholder="MESSI"
+                      className="h-10 rounded-lg border border-border bg-background px-3 text-sm uppercase tracking-normal text-foreground outline-none focus:border-primary"
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Number <span className="normal-case tracking-normal">(optional)</span>
+                    <input
+                      value={customNumber}
+                      onChange={(event) => setCustomNumber(event.target.value.replace(/\D/g, "").slice(0, 2))}
+                      inputMode="numeric"
+                      placeholder="10"
+                      className="h-10 rounded-lg border border-border bg-background px-3 text-sm tracking-normal text-foreground outline-none focus:border-primary"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em]">Quantity</span>
+                  <div className="flex items-center rounded-full border border-border p-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                      className="flex size-8 items-center justify-center rounded-full hover:bg-muted"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-9 text-center text-sm font-semibold">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((current) => Math.min(10, current + 1))}
+                      className="flex size-8 items-center justify-center rounded-full hover:bg-muted"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* CTA */}
-              <div className="mt-6 flex gap-3">
+              <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
                 <button
-                  onClick={() => setShowOrder(true)}
-                  className="flex-1 py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-[0.15em] rounded-full shadow-lg shadow-primary/10 transition-all hover:scale-[1.02] active:scale-95 font-mono"
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={!selectedSize}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
                 >
-                  Order Now — ${selectedPrice.toFixed(2)}
+                  {added ? <Check size={15} /> : <ShoppingBag size={15} />}
+                  {added ? "Added to Bag" : `Add to Bag - ${formatPriceMMK(selectedPrice * quantity)}`}
                 </button>
+                <Link
+                  href="/cart"
+                  aria-label="View bag"
+                  className="flex size-12 items-center justify-center rounded-full border border-border hover:border-primary hover:text-primary"
+                >
+                  <ShoppingBag size={16} />
+                </Link>
               </div>
 
               <Link href="/shop" className="flex items-center gap-2 text-muted-foreground hover:text-primary text-xs font-mono mt-5 transition-colors">
@@ -218,7 +308,6 @@ export default function JerseyDetail({ id }: { id: string }) {
       </main>
 
       <Footer />
-      <OrderPanel jersey={jersey} open={showOrder} onClose={() => setShowOrder(false)} />
     </div>
   );
 }

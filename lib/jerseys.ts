@@ -59,6 +59,10 @@ export function getJerseyKitPrice(jersey: Jersey, kit: KitVariant) {
   return jersey.kits[kit]?.price ?? jersey.price;
 }
 
+export function formatPriceMMK(price: number) {
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(price)} MMK`;
+}
+
 export const jerseys: Jersey[] = [
   {
     id: "world-cup-brazil-2026",
@@ -69,13 +73,13 @@ export const jerseys: Jersey[] = [
     collection: "Brazil 2026",
     description:
       "A World Cup catalog entry staged with Brazil-inspired green, yellow, and blue atmosphere.",
-    price: 89,
+    price: 89000,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 89 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 91 },
-      third: { image: "/assets/tisa-shirt.png", available: true, price: 94 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 89000 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 91000 },
+      third: { image: "/assets/tisa-shirt.png", available: true, price: 94000 },
     },
     accent_color: "#facc15",
     country_colors: ["#009b3a", "#facc15", "#002776"],
@@ -97,12 +101,12 @@ export const jerseys: Jersey[] = [
     collection: "Germany 2026",
     description:
       "A World Cup catalog entry staged with Germany-inspired black, red, and gold atmosphere.",
-    price: 89,
+    price: 89000,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 89 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 92 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 89000 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 92000 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
     accent_color: "#dd0000",
@@ -125,13 +129,13 @@ export const jerseys: Jersey[] = [
     collection: "England 2026",
     description:
       "A World Cup catalog entry staged with England-inspired white, red, and navy atmosphere.",
-    price: 92,
+    price: 92000,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 92 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 92000 },
       away: { image: "/assets/tisa-shirt.png", available: false },
-      third: { image: "/assets/tisa-shirt.png", available: true, price: 96 },
+      third: { image: "/assets/tisa-shirt.png", available: true, price: 96000 },
     },
     accent_color: "#cf142b",
     country_colors: ["#ffffff", "#cf142b", "#1d2b53"],
@@ -153,12 +157,12 @@ export const jerseys: Jersey[] = [
     collection: "Spain 2026",
     description:
       "A World Cup catalog entry staged with Spain-inspired red and yellow atmosphere.",
-    price: 79,
+    price: 79000,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 79 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 82 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 79000 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 82000 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
     accent_color: "#ffc400",
@@ -181,11 +185,11 @@ export const jerseys: Jersey[] = [
     collection: "Argentina 2026",
     description:
       "A World Cup catalog entry staged with Argentina-inspired sky blue, white, and gold atmosphere.",
-    price: 99,
+    price: 99000,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 99 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 99000 },
       away: { image: "/assets/tisa-shirt.png", available: false },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },

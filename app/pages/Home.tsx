@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import Carousel3D from "@/components/jersey/Carousel3D";
-import OrderPanel from "@/components/jersey/OrderPanel";
-import { getFeaturedJerseys, type Jersey } from "@/lib/jerseys";
+import { getFeaturedJerseys } from "@/lib/jerseys";
 
 const particles = Array.from({ length: 20 }, (_, index) => ({
   id: index,
@@ -23,7 +22,6 @@ export default function Home() {
   const router = useRouter();
   const jerseys = useMemo(() => getFeaturedJerseys(), []);
   const loading = false;
-  const [orderJersey, setOrderJersey] = useState<Jersey | null>(null);
 
   if (loading) {
     return (
@@ -79,9 +77,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: "Authentic Kits", value: "100%" },
-            { label: "Global Shipping", value: "48HR" },
-            { label: "Quality Guarantee", value: "365D" },
-            { label: "Secure Payment", value: "SSL" },
+            { label: "Nationwide Delivery", value: "MM" },
+            { label: "Mobile Wallet", value: "K/W" },
+            { label: "Sizing Support", value: "DIRECT" },
           ].map((item) => (
             <div key={item.label} className="text-center">
               <span className="text-lg font-bold text-primary font-mono">{item.value}</span>
@@ -92,7 +90,6 @@ export default function Home() {
       </div>
 
       <Footer />
-      <OrderPanel jersey={orderJersey} open={!!orderJersey} onClose={() => setOrderJersey(null)} />
     </div>
   );
 }
