@@ -91,7 +91,7 @@ export default function Shop() {
                       <div
                         className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-2xl"
                         style={{
-                          background: `radial-gradient(circle at center, ${jersey.accent_color || "#00F0FF"}, transparent 70%)`,
+                          background: `radial-gradient(circle at center, ${jersey.country_colors[1] || jersey.country_colors[0]}, transparent 70%)`,
                         }}
                       />
 

@@ -16,6 +16,8 @@ const paymentMethods: { id: PaymentMethod; label: string; color: string }[] = [
   { id: "wave", label: "WavePay", color: "#f5c400" },
 ];
 
+const uaeRegions = ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah"];
+
 export default function Checkout() {
   const { items, hydrated, subtotal, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kpay");
@@ -137,19 +139,24 @@ export default function Checkout() {
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Phone number
-                    <input required name="phone" type="tel" inputMode="tel" autoComplete="tel" pattern="^(09|\+?959)[0-9 ]{7,11}$" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="09 123 456 789" />
+                    <input required name="phone" type="tel" inputMode="tel" autoComplete="tel" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="+971 50 123 4567" />
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:col-span-2">
                     Email <span className="normal-case tracking-normal">(optional)</span>
                     <input name="email" type="email" autoComplete="email" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="you@example.com" />
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    City / Region
-                    <input required name="region" autoComplete="address-level1" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="Yangon" />
+                    Country
+                    <select required name="country" defaultValue="United Arab Emirates" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                      <option>United Arab Emirates</option>
+                    </select>
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Township
-                    <input required name="township" autoComplete="address-level2" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="Kamayut" />
+                    Region
+                    <select required name="region" autoComplete="address-level1" defaultValue="" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                      <option value="" disabled>Select region</option>
+                      {uaeRegions.map((region) => <option key={region}>{region}</option>)}
+                    </select>
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:col-span-2">
                     Delivery address

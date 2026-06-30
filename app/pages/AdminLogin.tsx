@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 function getAdminNextPath() {
@@ -17,6 +17,7 @@ export default function AdminLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -137,12 +138,21 @@ export default function AdminLogin() {
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
-                    className="h-14 w-full rounded-lg border border-border bg-background pl-12 pr-4 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+                    className="h-14 w-full rounded-lg border border-border bg-background pl-12 pr-12 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute right-4 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
                 </span>
               </label>
 

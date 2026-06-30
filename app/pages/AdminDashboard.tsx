@@ -37,7 +37,7 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AdminTab = "overview" | "orders" | "products" | "payments" | "print" | "settings";
-type SettingSection = "leagues" | "sizes" | "teams" | "seasons";
+type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges";
 type KitVariant = "home" | "away" | "third";
 type ProductStatus = "draft" | "active" | "archived";
 type OrderStatus =
@@ -51,6 +51,9 @@ type OrderStatus =
   | "payment_rejected";
 type PaymentProvider = "kpay" | "wave";
 type PaymentStatus = "pending" | "verified" | "rejected";
+type DeliveryStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+type ArmBadge = "" | "ucl" | "epl";
+type AddOnPricing = { customization: number; armBadge: number };
 
 type DbOrderItem = {
   id: string;
@@ -62,6 +65,9 @@ type DbOrderItem = {
   size: string;
   custom_name: string | null;
   custom_number: string | null;
+  arm_badge: ArmBadge | null;
+  customization_fee: number;
+  arm_badge_fee: number;
   unit_price: number;
   line_total: number;
 };
@@ -83,24 +89,36 @@ type DbPaymentProof = {
   } | null;
 };
 
+type DbOrderStatusHistory = {
+  id: string;
+  order_id: string;
+  from_status: OrderStatus | null;
+  to_status: OrderStatus;
+  note: string | null;
+  created_at: string;
+  profiles?: { display_name: string | null } | null;
+};
+
 type DbOrder = {
   id: string;
   order_number: string;
   customer_name: string;
   customer_phone: string;
   customer_email: string | null;
+  country: string;
   region: string;
-  township: string;
   delivery_address: string;
   subtotal: number;
   delivery_fee: number;
   total: number;
   status: OrderStatus;
+  delivery_status: DeliveryStatus;
   customer_note: string | null;
   admin_note: string | null;
   created_at: string;
   order_items?: DbOrderItem[];
   payment_proofs?: DbPaymentProof[];
+  order_status_history?: DbOrderStatusHistory[];
 };
 
 type OrderItemFormState = {
@@ -113,6 +131,7 @@ type OrderItemFormState = {
   size: string;
   custom_name: string;
   custom_number: string;
+  arm_badge: ArmBadge;
   quantity: string;
   unit_price: string;
 };
@@ -123,18 +142,14 @@ type OrderFormState = {
   customer_name: string;
   customer_phone: string;
   customer_email: string;
+  country: string;
   region: string;
-  township: string;
   delivery_address: string;
   delivery_fee: string;
   status: OrderStatus;
+  delivery_status: DeliveryStatus;
   customer_note: string;
   admin_note: string;
-  payment_provider: PaymentProvider;
-  payment_transaction_id: string;
-  payment_amount: string;
-  payment_storage_path: string;
-  payment_status: PaymentStatus;
   items: OrderItemFormState[];
 };
 
@@ -209,7 +224,6 @@ type DbProduct = {
   breathability: number | null;
   durability: number | null;
   moisture_wicking: number | null;
-  accent_color: string | null;
   country_colors: string[];
   featured: boolean;
   status: ProductStatus;
@@ -229,7 +243,7 @@ type VariantFormState = {
   image_front_path: string;
   image_back_path: string;
   available: boolean;
-  stock: string;
+  stockBySize: Record<string, string>;
 };
 
 type ProductFormState = {
@@ -246,7 +260,6 @@ type ProductFormState = {
   base_price: string;
   season: string;
   fabric: string;
-  accent_color: string;
   country_colors: string;
   featured: boolean;
   status: ProductStatus;
@@ -281,18 +294,31 @@ const kitOptions: { id: KitVariant; label: string }[] = [
 
 const allowedProductImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxProductImageBytes = 10 * 1024 * 1024;
-const maxPaymentProofBytes = 5 * 1024 * 1024;
 
 const orderStatusOptions: { id: OrderStatus; label: string }[] = [
-  { id: "awaiting_payment", label: "Awaiting payment" },
-  { id: "verification_pending", label: "Verification pending" },
+  { id: "awaiting_payment", label: "Unpaid" },
   { id: "paid", label: "Paid" },
+];
+
+const deliveryStatusOptions: { id: DeliveryStatus; label: string }[] = [
+  { id: "pending", label: "Pending" },
   { id: "processing", label: "Processing" },
   { id: "shipped", label: "Shipped" },
   { id: "delivered", label: "Delivered" },
   { id: "cancelled", label: "Cancelled" },
-  { id: "payment_rejected", label: "Payment rejected" },
 ];
+
+const deliveryRegions = {
+  "United Arab Emirates": [
+    "Abu Dhabi",
+    "Dubai",
+    "Sharjah",
+    "Ajman",
+    "Umm Al Quwain",
+    "Ras Al Khaimah",
+    "Fujairah",
+  ],
+} as const;
 
 const defaultSizes = "S, M, L, XL, 2XL";
 const settingSections: {
@@ -304,6 +330,7 @@ const settingSections: {
   { id: "sizes", label: "Sizes", icon: Ruler },
   { id: "teams", label: "Teams", icon: Shirt },
   { id: "seasons", label: "Seasons", icon: CalendarDays },
+  { id: "charges", label: "Charges", icon: Banknote },
 ];
 
 const printSlipSizes: { id: PrintSlipSize; label: string; width: string; minHeight: string }[] = [
@@ -331,6 +358,77 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.46h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </svg>
+);
+
+function getBurmeseOrderStatus(status: OrderStatus) {
+  const mapping: Record<OrderStatus, string> = {
+    awaiting_payment: "ငွေပေးချေရန် စောင့်ဆိုင်းနေဆဲ",
+    verification_pending: "ငွေလွှဲစလစ် စစ်ဆေးနေဆဲ",
+    paid: "ငွေပေးချေမှု အောင်မြင်ပြီးပါပြီ",
+    processing: "အော်ဒါ ပြင်ဆင်နေပါပြီ",
+    shipped: "ပို့ဆောင်ရေးသို့ အပ်နှံပြီးပါပြီ",
+    delivered: "ပို့ဆောင်မှု ပြီးမြောက်ပါပြီ",
+    cancelled: "အော်ဒါ ပယ်ဖျက်လိုက်ပါပြီ",
+    payment_rejected: "ငွေပေးချေမှုစလစ် ငြင်းပယ်ခံရပါသည်",
+  };
+  return mapping[status] || status;
+}
+
+function getBurmeseDeliveryStatus(status: DeliveryStatus) {
+  const mapping: Record<DeliveryStatus, string> = {
+    pending: "စောင့်ဆိုင်းဆဲ",
+    processing: "ပြင်ဆင်နေဆဲ",
+    shipped: "ပို့ဆောင်နေဆဲ (လမ်းခရီးတွင်)",
+    delivered: "ရောက်ရှိပြီးပါပြီ",
+    cancelled: "ပယ်ဖျက်လိုက်ပါပြီ",
+  };
+  return mapping[status] || status;
+}
+
+function getWhatsAppMessage(order: DbOrder) {
+  const itemsText = (order.order_items ?? [])
+    .map((item) => {
+      let details = `${item.kit_name} / ${item.size}`;
+      if (item.custom_name || item.custom_number) {
+        details += ` (Print: ${item.custom_name || "-"} #${item.custom_number || "-"})`;
+      }
+      if (item.arm_badge) {
+        details += ` (${item.arm_badge.toUpperCase()} Badge)`;
+      }
+      return `- ${item.product_name} (${details}) x ${item.quantity} [${formatMmk(item.line_total)}]`;
+    })
+    .join("\n");
+
+  const orderStatus = getBurmeseOrderStatus(order.status);
+  const deliveryStatus = getBurmeseDeliveryStatus(order.delivery_status ?? "pending");
+
+  return `မင်္ဂလာပါ ${order.customer_name} ရှင့်၊
+
+TISA Premium Match Jersey Showroom မှ လူကြီးမင်းမှာယူထားသော အော်ဒါအတွက် အကြောင်းကြားစာဖြစ်ပါသည်။
+
+Order Reference: ${order.order_number}
+Order Status: ${orderStatus}
+Delivery Status: ${deliveryStatus}
+
+--- မှာယူခဲ့သော ပစ္စည်းအသေးစိတ် ---
+${itemsText}
+
+ကုန်ပစ္စည်းတန်ဖိုး: ${formatMmk(order.subtotal)}
+ပို့ဆောင်ခ: ${formatMmk(order.delivery_fee)}
+စုစုပေါင်းကျသင့်ငွေ: ${formatMmk(order.total)}
+
+--- ပို့ဆောင်မည့်လိပ်စာ ---
+အမည် - ${order.customer_name}
+ဖုန်းနံပါတ် - ${order.customer_phone}
+လိပ်စာ - ${order.delivery_address}, ${order.region}, ${order.country}
+
+ကျေးဇူးတင်ရှိပါသည်ရှင့်။`;
+}
+
 function toNumber(value: string, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -341,6 +439,13 @@ function splitCsv(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+const defaultThemeColors = ["#111111", "#ffffff", "#737373"];
+
+function getThemeColors(value: string) {
+  const colors = splitCsv(value).slice(0, 3);
+  return defaultThemeColors.map((fallback, index) => colors[index] || fallback);
 }
 
 function createSettingForm(section: SettingSection, item?: DbLeague | DbSeason | DbJerseySize | DbTeam): SettingFormState {
@@ -377,21 +482,25 @@ function slugify(value: string) {
 }
 
 function getStatusLabel(status: OrderStatus) {
-  return orderStatusOptions.find((item) => item.id === status)?.label ?? status;
+  return ["paid", "processing", "shipped", "delivered"].includes(status) ? "Paid" : "Unpaid";
 }
 
 function getStatusClass(status: OrderStatus) {
-  const classes: Record<OrderStatus, string> = {
-    awaiting_payment: "border-neutral-200 bg-neutral-100 text-neutral-700",
-    verification_pending: "border-amber-200 bg-amber-50 text-amber-700",
-    paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    processing: "border-blue-200 bg-blue-50 text-blue-700",
-    shipped: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    delivered: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    cancelled: "border-red-200 bg-red-50 text-red-700",
-    payment_rejected: "border-red-200 bg-red-50 text-red-700",
-  };
-  return classes[status];
+  return getStatusLabel(status) === "Paid"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-neutral-200 bg-neutral-100 text-neutral-700";
+}
+
+function getPaymentStatusValue(status: OrderStatus): OrderStatus {
+  return getStatusLabel(status) === "Paid" ? "paid" : "awaiting_payment";
+}
+
+function getDeliveryStatusClass(status: DeliveryStatus) {
+  if (status === "delivered") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "cancelled") return "border-red-200 bg-red-50 text-red-700";
+  if (status === "shipped") return "border-indigo-200 bg-indigo-50 text-indigo-700";
+  if (status === "processing") return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-neutral-200 bg-neutral-100 text-neutral-700";
 }
 
 function getPaymentLabel(method?: PaymentProvider | "cod") {
@@ -436,6 +545,7 @@ function createEmptyOrderItem(): OrderItemFormState {
     size: "",
     custom_name: "",
     custom_number: "",
+    arm_badge: "",
     quantity: "1",
     unit_price: "0",
   };
@@ -447,42 +557,33 @@ function createEmptyOrderForm(): OrderFormState {
     customer_name: "",
     customer_phone: "",
     customer_email: "",
+    country: "United Arab Emirates",
     region: "",
-    township: "",
     delivery_address: "",
     delivery_fee: "0",
     status: "awaiting_payment",
+    delivery_status: "pending",
     customer_note: "",
     admin_note: "",
-    payment_provider: "kpay",
-    payment_transaction_id: "",
-    payment_amount: "0",
-    payment_storage_path: "",
-    payment_status: "pending",
     items: [createEmptyOrderItem()],
   };
 }
 
 function orderToForm(order: DbOrder): OrderFormState {
-  const proof = order.payment_proofs?.[0];
   return {
     id: order.id,
     order_number: order.order_number,
     customer_name: order.customer_name,
     customer_phone: order.customer_phone,
     customer_email: order.customer_email ?? "",
+    country: order.country || "United Arab Emirates",
     region: order.region,
-    township: order.township,
     delivery_address: order.delivery_address,
     delivery_fee: String(order.delivery_fee),
     status: order.status,
+    delivery_status: order.delivery_status ?? "pending",
     customer_note: order.customer_note ?? "",
     admin_note: order.admin_note ?? "",
-    payment_provider: proof?.provider ?? "kpay",
-    payment_transaction_id: "transaction_id" in (proof ?? {}) ? (proof as DbPaymentProof).transaction_id : "",
-    payment_amount: "amount" in (proof ?? {}) ? String((proof as DbPaymentProof).amount) : String(order.total),
-    payment_storage_path: "storage_path" in (proof ?? {}) ? (proof as DbPaymentProof).storage_path : "",
-    payment_status: proof?.status ?? "pending",
     items: (order.order_items ?? []).map((item) => ({
       id: item.id,
       product_id: item.product_id ?? "",
@@ -493,14 +594,21 @@ function orderToForm(order: DbOrder): OrderFormState {
       size: item.size,
       custom_name: item.custom_name ?? "",
       custom_number: item.custom_number ?? "",
+      arm_badge: item.arm_badge ?? "",
       quantity: String(item.quantity),
       unit_price: String(item.unit_price),
     })),
   };
 }
 
-function getOrderSubtotal(items: OrderItemFormState[]) {
-  return items.reduce((sum, item) => sum + toNumber(item.quantity, 1) * toNumber(item.unit_price), 0);
+function getOrderItemTotal(item: OrderItemFormState, pricing: AddOnPricing) {
+  const addOnPrice = (item.custom_name || item.custom_number ? pricing.customization : 0)
+    + (item.arm_badge ? pricing.armBadge : 0);
+  return toNumber(item.quantity, 1) * (toNumber(item.unit_price) + addOnPrice);
+}
+
+function getOrderSubtotal(items: OrderItemFormState[], pricing: AddOnPricing) {
+  return items.reduce((sum, item) => sum + getOrderItemTotal(item, pricing), 0);
 }
 
 function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
@@ -517,15 +625,14 @@ function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
     base_price: "0",
     season: "2026",
     fabric: "Performance knit",
-    accent_color: "#111111",
-    country_colors: "#111111, #ffffff",
+    country_colors: "#111111, #ffffff, #737373",
     featured: false,
     status: "active",
     size_ids: sizes.length ? sortByOrder(sizes).map((size) => size.id) : [],
     variants: {
-      home: { kit: "home", name: "Home Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: true, stock: "0" },
-      away: { kit: "away", name: "Away Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stock: "0" },
-      third: { kit: "third", name: "Third Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stock: "0" },
+      home: { kit: "home", name: "Home Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: true, stockBySize: {} },
+      away: { kit: "away", name: "Away Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stockBySize: {} },
+      third: { kit: "third", name: "Third Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stockBySize: {} },
     },
   };
 }
@@ -548,7 +655,9 @@ function productToForm(product: DbProduct, availableSizes: DbJerseySize[] = []):
       image_front_path: variant.image_front_path ?? "",
       image_back_path: variant.image_back_path ?? "",
       available: variant.available,
-      stock: String((variant.inventory ?? []).reduce((sum, row) => sum + row.quantity, 0)),
+      stockBySize: Object.fromEntries(
+        (variant.inventory ?? []).map((row) => [row.size, String(row.quantity)]),
+      ),
     };
   }
 
@@ -566,7 +675,6 @@ function productToForm(product: DbProduct, availableSizes: DbJerseySize[] = []):
     base_price: String(product.base_price),
     season: product.season ?? "",
     fabric: product.fabric ?? "",
-    accent_color: product.accent_color ?? "#111111",
     country_colors: product.country_colors.join(", "),
     featured: product.featured,
     status: product.status,
@@ -590,6 +698,7 @@ export default function AdminDashboard() {
   const [teams, setTeams] = useState<DbTeam[]>([]);
   const [seasons, setSeasons] = useState<DbSeason[]>([]);
   const [sizes, setSizes] = useState<DbJerseySize[]>([]);
+  const [addOnPricing, setAddOnPricing] = useState<AddOnPricing>({ customization: 2, armBadge: 5 });
   const [settingSection, setSettingSection] = useState<SettingSection>("leagues");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<SettingFormState | null>(null);
@@ -603,10 +712,10 @@ export default function AdminDashboard() {
     setActionMessage("");
     const supabase = createSupabaseBrowserClient();
 
-    const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult] = await Promise.all([
+    const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult, pricingResult] = await Promise.all([
       supabase
         .from("orders")
-        .select("*, order_items(*), payment_proofs(*)")
+        .select("*, order_items(*), payment_proofs(*), order_status_history(*, profiles(display_name))")
         .order("created_at", { ascending: false }),
       supabase
         .from("products")
@@ -620,6 +729,7 @@ export default function AdminDashboard() {
       supabase.from("teams").select("*, leagues(id, name)").order("sort_order", { ascending: true }).order("name", { ascending: true }),
       supabase.from("seasons").select("*").order("sort_order", { ascending: true }).order("name", { ascending: true }),
       supabase.from("jersey_sizes").select("*").order("sort_order", { ascending: true }).order("label", { ascending: true }),
+      supabase.from("commerce_settings").select("customization_price, arm_badge_price").eq("id", true).maybeSingle(),
     ]);
 
     const firstError =
@@ -629,7 +739,8 @@ export default function AdminDashboard() {
       leaguesResult.error ??
       teamsResult.error ??
       seasonsResult.error ??
-      sizesResult.error;
+      sizesResult.error ??
+      pricingResult.error;
     if (firstError) {
       setActionMessage(firstError.message);
     } else {
@@ -640,6 +751,12 @@ export default function AdminDashboard() {
       setTeams((teamsResult.data ?? []) as DbTeam[]);
       setSeasons((seasonsResult.data ?? []) as DbSeason[]);
       setSizes((sizesResult.data ?? []) as DbJerseySize[]);
+      if (pricingResult.data) {
+        setAddOnPricing({
+          customization: pricingResult.data.customization_price,
+          armBadge: pricingResult.data.arm_badge_price,
+        });
+      }
     }
     setLoadingData(false);
   }, []);
@@ -711,6 +828,18 @@ export default function AdminDashboard() {
     setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status } : item)));
   };
 
+  const updateDeliveryStatus = async (order: DbOrder, deliveryStatus: DeliveryStatus) => {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("orders").update({ delivery_status: deliveryStatus }).eq("id", order.id);
+    if (error) {
+      setActionMessage(error.message);
+      return;
+    }
+    setOrders((current) => current.map((item) => (
+      item.id === order.id ? { ...item, delivery_status: deliveryStatus } : item
+    )));
+  };
+
   const updatePaymentStatus = async (proof: DbPaymentProof, status: PaymentStatus) => {
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase
@@ -727,10 +856,23 @@ export default function AdminDashboard() {
       return;
     }
 
+    const nextStatus = status === "verified" ? "paid" : "payment_rejected";
+    const currentOrder = orders.find((o) => o.id === proof.order_id);
+    const fromStatus = currentOrder?.status ?? null;
+
     await supabase
       .from("orders")
-      .update({ status: status === "verified" ? "paid" : "payment_rejected" })
+      .update({ status: nextStatus })
       .eq("id", proof.order_id);
+
+    await supabase.from("order_status_history").insert({
+      order_id: proof.order_id,
+      from_status: fromStatus,
+      to_status: nextStatus,
+      note: status === "verified"
+        ? "Updated via payment proof approval"
+        : "Updated via payment proof rejection",
+    });
 
     await loadAdminData();
   };
@@ -739,12 +881,12 @@ export default function AdminDashboard() {
     setActionMessage("");
     const supabase = createSupabaseBrowserClient();
     const items = form.items.filter((item) => item.product_name.trim() && item.size.trim() && toNumber(item.quantity, 1) > 0);
-    const subtotal = getOrderSubtotal(items);
+    const subtotal = getOrderSubtotal(items, addOnPricing);
     const deliveryFee = toNumber(form.delivery_fee);
     const total = subtotal + deliveryFee;
 
-    if (!form.customer_name.trim() || !form.customer_phone.trim() || !form.region.trim() || !form.township.trim() || !form.delivery_address.trim()) {
-      setActionMessage("Customer name, phone, region, township, and delivery address are required.");
+    if (!form.customer_name.trim() || !form.customer_phone.trim() || !form.country.trim() || !form.region.trim() || !form.delivery_address.trim()) {
+      setActionMessage("Customer name, phone, country, region, and delivery address are required.");
       return;
     }
 
@@ -758,16 +900,21 @@ export default function AdminDashboard() {
       customer_name: form.customer_name.trim(),
       customer_phone: form.customer_phone.trim(),
       customer_email: form.customer_email.trim() || null,
+      country: form.country.trim(),
       region: form.region.trim(),
-      township: form.township.trim(),
       delivery_address: form.delivery_address.trim(),
       subtotal,
       delivery_fee: deliveryFee,
       total,
       status: form.status,
+      delivery_status: form.delivery_status,
       customer_note: form.customer_note.trim() || null,
       admin_note: form.admin_note.trim() || null,
     };
+
+    const currentOrder = form.id ? orders.find((o) => o.id === form.id) : null;
+    const statusChanged = currentOrder && currentOrder.status !== form.status;
+    const isNewOrder = !form.id;
 
     const orderResult = form.id
       ? await supabase.from("orders").update(orderPayload).eq("id", form.id).select("id").single()
@@ -779,6 +926,22 @@ export default function AdminDashboard() {
     }
 
     const orderId = orderResult.data.id as string;
+
+    if (isNewOrder) {
+      await supabase.from("order_status_history").insert({
+        order_id: orderId,
+        from_status: null,
+        to_status: form.status,
+        note: "Order created via admin panel",
+      });
+    } else if (statusChanged) {
+      await supabase.from("order_status_history").insert({
+        order_id: orderId,
+        from_status: currentOrder.status,
+        to_status: form.status,
+        note: "Status updated during order edit",
+      });
+    }
     if (form.id) {
       const { error } = await supabase.from("order_items").delete().eq("order_id", orderId);
       if (error) {
@@ -799,9 +962,12 @@ export default function AdminDashboard() {
         size: item.size.trim(),
         custom_name: item.custom_name.trim() || null,
         custom_number: item.custom_number.trim() || null,
+        arm_badge: item.arm_badge || null,
+        customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
+        arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
         quantity,
         unit_price: unitPrice,
-        line_total: quantity * unitPrice,
+        line_total: getOrderItemTotal(item, addOnPricing),
       };
     });
 
@@ -809,22 +975,6 @@ export default function AdminDashboard() {
     if (itemResult.error) {
       setActionMessage(itemResult.error.message);
       return;
-    }
-
-    if (form.id) await supabase.from("payment_proofs").delete().eq("order_id", orderId);
-    if (form.payment_transaction_id.trim() && form.payment_storage_path.trim()) {
-      const proofResult = await supabase.from("payment_proofs").insert({
-        order_id: orderId,
-        provider: form.payment_provider,
-        transaction_id: form.payment_transaction_id.trim(),
-        amount: toNumber(form.payment_amount, total),
-        storage_path: form.payment_storage_path.trim(),
-        status: form.payment_status,
-      });
-      if (proofResult.error) {
-        setActionMessage(proofResult.error.message);
-        return;
-      }
     }
 
     setEditingOrder(null);
@@ -845,11 +995,124 @@ export default function AdminDashboard() {
     await loadAdminData();
   };
 
+  const handleWhatsAppNotify = (order: DbOrder) => {
+    const phoneClean = order.customer_phone.replace(/\D/g, "");
+    let formattedPhone = phoneClean;
+    if (formattedPhone.startsWith("09")) {
+      formattedPhone = "959" + formattedPhone.slice(2);
+    } else if (formattedPhone.startsWith("0")) {
+      if (order.country === "United Arab Emirates") {
+        formattedPhone = "971" + formattedPhone.slice(1);
+      } else {
+        formattedPhone = "959" + formattedPhone.slice(1);
+      }
+    } else if (!formattedPhone.startsWith("95") && !formattedPhone.startsWith("971")) {
+      if (order.country === "United Arab Emirates") {
+        formattedPhone = "971" + formattedPhone;
+      } else {
+        formattedPhone = "95" + formattedPhone;
+      }
+    }
+
+    const message = getWhatsAppMessage(order);
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
+  const handleQuickStockUpdate = async (inventoryId: string, newQuantity: number) => {
+    if (newQuantity < 0) return;
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from("inventory")
+      .update({ quantity: newQuantity })
+      .eq("id", inventoryId);
+
+    if (error) {
+      setActionMessage(error.message);
+      return;
+    }
+
+    setActionMessage("Stock updated successfully.");
+    await loadAdminData();
+  };
+
+  const handleExportOrdersToCsv = () => {
+    if (orders.length === 0) {
+      setActionMessage("No orders available to export.");
+      return;
+    }
+
+    const headers = [
+      "Order Number",
+      "Customer Name",
+      "Phone",
+      "Email",
+      "Country",
+      "Region",
+      "Delivery Address",
+      "Ordered Items",
+      "Subtotal",
+      "Delivery Fee",
+      "Total",
+      "Order Status",
+      "Delivery Status",
+      "Created At",
+    ];
+
+    const escapeCsv = (val: string | null | undefined) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return `"${str}"`;
+    };
+
+    const csvRows = [
+      headers.join(","),
+      ...orders.map((order) => {
+        const itemsString = (order.order_items ?? [])
+          .map((item) => `${item.product_name} (${item.kit_name} / ${item.size}) x${item.quantity}`)
+          .join("; ");
+
+        return [
+          escapeCsv(order.order_number),
+          escapeCsv(order.customer_name),
+          escapeCsv(order.customer_phone),
+          escapeCsv(order.customer_email),
+          escapeCsv(order.country),
+          escapeCsv(order.region),
+          escapeCsv(order.delivery_address),
+          escapeCsv(itemsString),
+          order.subtotal,
+          order.delivery_fee,
+          order.total,
+          escapeCsv(order.status),
+          escapeCsv(order.delivery_status),
+          escapeCsv(new Date(order.created_at).toLocaleString()),
+        ].join(",");
+      }),
+    ];
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob(["\uFEFF" + csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `TISA_Orders_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getActiveSettingRows = () => {
     if (settingSection === "leagues") return leagues;
     if (settingSection === "teams") return teams;
     if (settingSection === "seasons") return seasons;
-    return sizes;
+    if (settingSection === "sizes") return sizes;
+    return [];
   };
 
   const saveSetting = async (section: SettingSection, form: SettingFormState) => {
@@ -903,6 +1166,16 @@ export default function AdminDashboard() {
     await loadAdminData();
   };
 
+  const saveAddOnPricing = async () => {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("commerce_settings").upsert({
+      id: true,
+      customization_price: Math.max(0, Math.floor(addOnPricing.customization)),
+      arm_badge_price: Math.max(0, Math.floor(addOnPricing.armBadge)),
+    });
+    setActionMessage(error ? error.message : "Additional prices saved.");
+  };
+
   const deleteSetting = async (section: SettingSection, item: DbLeague | DbSeason | DbJerseySize | DbTeam) => {
     const label = "label" in item ? item.label : item.name;
     if (!window.confirm(`Delete ${label}? Existing products will keep their text values, but the lookup link may be cleared.`)) return;
@@ -951,8 +1224,7 @@ export default function AdminDashboard() {
       breathability: null,
       durability: null,
       moisture_wicking: null,
-      accent_color: form.accent_color.trim() || null,
-      country_colors: splitCsv(form.country_colors),
+      country_colors: getThemeColors(form.country_colors),
       featured: form.featured,
       status: form.status,
     };
@@ -994,13 +1266,10 @@ export default function AdminDashboard() {
       await supabase.from("inventory").delete().eq("variant_id", variantId);
 
       if (inventorySizes.length) {
-        const quantity = toNumber(variant.stock);
-        const perSizeQuantity = Math.floor(quantity / inventorySizes.length);
-        const remainder = quantity % inventorySizes.length;
-        const inventoryRows = inventorySizes.map((size, index) => ({
+        const inventoryRows = inventorySizes.map((size) => ({
           variant_id: variantId,
           size,
-          quantity: perSizeQuantity + (index < remainder ? 1 : 0),
+          quantity: variant.available ? Math.max(0, Math.floor(toNumber(variant.stockBySize[size]))) : 0,
           reserved: 0,
         }));
         const inventoryResult = await supabase.from("inventory").insert(inventoryRows);
@@ -1036,10 +1305,83 @@ export default function AdminDashboard() {
     });
   }, [products]);
 
+  const analyticsData = useMemo(() => {
+    const last6Months: { year: number; month: number; label: string; revenue: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleString("en-US", { month: "short" });
+      last6Months.push({
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label,
+        revenue: 0,
+      });
+    }
+
+    orders.forEach((order) => {
+      if (["cancelled", "payment_rejected"].includes(order.status)) return;
+      const orderDate = new Date(order.created_at);
+      const idx = last6Months.findIndex(
+        (m) => m.year === orderDate.getFullYear() && m.month === orderDate.getMonth()
+      );
+      if (idx !== -1) {
+        last6Months[idx].revenue += order.total;
+      }
+    });
+
+    const salesMap: Record<string, number> = {};
+    orders.forEach((order) => {
+      if (["cancelled", "payment_rejected"].includes(order.status)) return;
+      (order.order_items ?? []).forEach((item) => {
+        salesMap[item.product_name] = (salesMap[item.product_name] || 0) + item.quantity;
+      });
+    });
+
+    const topSelling = Object.entries(salesMap)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+
+    return { last6Months, topSelling };
+  }, [orders]);
+
+  const lowStockItems = useMemo(() => {
+    const list: {
+      inventoryId: string;
+      productName: string;
+      kitName: string;
+      size: string;
+      quantity: number;
+      reserved: number;
+    }[] = [];
+
+    products.forEach((product) => {
+      (product.product_variants ?? []).forEach((variant) => {
+        if (!variant.available) return;
+        (variant.inventory ?? []).forEach((inv) => {
+          const availableStock = inv.quantity - inv.reserved;
+          if (availableStock <= 8) {
+            list.push({
+              inventoryId: inv.id,
+              productName: product.name,
+              kitName: variant.name,
+              size: inv.size,
+              quantity: inv.quantity,
+              reserved: inv.reserved,
+            });
+          }
+        });
+      });
+    });
+
+    return list;
+  }, [products]);
+
   const filteredOrders = orders.filter((order) => {
     const term = query.trim().toLowerCase();
     if (!term) return true;
-    return [order.order_number, order.customer_name, order.customer_phone, order.region, order.township].some((value) =>
+    return [order.order_number, order.customer_name, order.customer_phone, order.country, order.region].some((value) =>
       value.toLowerCase().includes(term),
     );
   });
@@ -1252,9 +1594,72 @@ export default function AdminDashboard() {
                   <MetricCard label="Low stock products" value={lowStockProducts.toString()} icon={Boxes} attention={lowStockProducts > 0} />
                 </div>
 
+                <div className="grid gap-6 md:grid-cols-2">
+                  <article className="rounded-xl border border-border bg-background p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Sales Analytics</p>
+                    <h3 className="mt-1 text-lg font-bold">Monthly Revenue Trend</h3>
+                    <div className="mt-6 flex h-48 items-end justify-between gap-3 border-b border-border pb-2">
+                      {(() => {
+                        const maxRevenue = Math.max(...analyticsData.last6Months.map((m) => m.revenue), 1);
+                        return analyticsData.last6Months.map((m, index) => {
+                          const heightPercent = (m.revenue / maxRevenue) * 100;
+                          return (
+                            <div key={index} className="group relative flex flex-1 flex-col items-center">
+                              <span className="pointer-events-none absolute bottom-full mb-2 z-10 scale-95 opacity-0 rounded bg-neutral-900 px-2 py-1 text-[10px] text-white transition-all group-hover:scale-100 group-hover:opacity-100 whitespace-nowrap">
+                                {formatMmk(m.revenue)}
+                              </span>
+                              <div
+                                style={{ height: `${Math.max(heightPercent, 2)}%` }}
+                                className="w-full rounded-t bg-primary/20 group-hover:bg-primary transition-all duration-300 relative overflow-hidden"
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent" />
+                              </div>
+                              <span className="mt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                                {m.label}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </article>
+
+                  <article className="rounded-xl border border-border bg-background p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Product Performance</p>
+                    <h3 className="mt-1 text-lg font-bold">Top Selling Jerseys</h3>
+                    <div className="mt-6 space-y-4">
+                      {analyticsData.topSelling.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-8">No sales data available yet.</p>
+                      ) : (() => {
+                        const maxQty = Math.max(...analyticsData.topSelling.map((p) => p.qty), 1);
+                        return analyticsData.topSelling.map((product, index) => {
+                          const widthPercent = (product.qty / maxQty) * 100;
+                          return (
+                            <div key={index} className="space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-foreground truncate max-w-[200px]">{product.name}</span>
+                                <span className="font-bold text-muted-foreground">{product.qty} sold</span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                                <div
+                                  style={{ width: `${widthPercent}%` }}
+                                  className="h-full rounded-full bg-primary/80 transition-all duration-500"
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </article>
+                </div>
+
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.8fr)]">
-                  <OrdersPanel orders={orders.slice(0, 4)} compact onStatusChange={updateOrderStatus} />
-                  <PaymentsPanel proofs={paymentProofs.filter((proof) => proof.status === "pending").slice(0, 4)} onStatusChange={updatePaymentStatus} />
+                  <OrdersPanel orders={orders.slice(0, 4)} compact onStatusChange={updateOrderStatus} onDeliveryStatusChange={updateDeliveryStatus} onNotify={handleWhatsAppNotify} />
+                  <div className="space-y-6">
+                    <PaymentsPanel proofs={paymentProofs.filter((proof) => proof.status === "pending").slice(0, 4)} onStatusChange={updatePaymentStatus} />
+                    <LowStockPanel items={lowStockItems} onUpdateStock={handleQuickStockUpdate} />
+                  </div>
                 </div>
 
                 <ProductsPanel rows={productRows.slice(0, 5)} sizes={sizes} compact onEdit={setEditingProduct} onDelete={deleteProduct} />
@@ -1273,20 +1678,30 @@ export default function AdminDashboard() {
                       className="h-11 w-full rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionMessage("");
-                      setEditingOrder(createEmptyOrderForm());
-                    }}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground"
-                  >
-                    <Plus size={13} /> Add Order
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportOrdersToCsv}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground hover:border-primary/40"
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionMessage("");
+                        setEditingOrder(createEmptyOrderForm());
+                      }}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground"
+                    >
+                      <Plus size={13} /> Add Order
+                    </button>
+                  </div>
                 </div>
                 <OrdersPanel
                   orders={filteredOrders}
                   onStatusChange={updateOrderStatus}
+                  onDeliveryStatusChange={updateDeliveryStatus}
                   onView={setViewingOrder}
                   onEdit={(order) => {
                     setActionMessage("");
@@ -1294,6 +1709,7 @@ export default function AdminDashboard() {
                   }}
                   onDelete={deleteOrder}
                   onPrint={setPrintingOrder}
+                  onNotify={handleWhatsAppNotify}
                 />
               </section>
             )}
@@ -1326,21 +1742,50 @@ export default function AdminDashboard() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Settings</p>
                   <h2 className="mt-1 text-xl font-bold">{getSettingTitle(settingSection)}</h2>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Use the Settings submenu in the sidebar to switch between Leagues, Sizes, Teams, and Seasons.
+                    {settingSection === "charges"
+                      ? "Manage additional prices for product customizations, such as print name & number, and arm badges."
+                      : "Use the Settings submenu in the sidebar to switch between Leagues, Sizes, Teams, Seasons, and Charges."}
                   </p>
                 </section>
-                <SettingsCrudPanel
-                  section={settingSection}
-                  leagues={leagues}
-                  rows={getActiveSettingRows()}
-                  editingForm={editingSetting}
-                  onChange={setEditingSetting}
-                  onEdit={(item) => setEditingSetting(createSettingForm(settingSection, item))}
-                  onCreate={() => setEditingSetting(createSettingForm(settingSection))}
-                  onCancel={() => setEditingSetting(null)}
-                  onSave={(form) => saveSetting(settingSection, form)}
-                  onDelete={(item) => deleteSetting(settingSection, item)}
-                />
+                {settingSection === "charges" && (
+                  <section className="rounded-xl border border-border bg-background p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Order additional</p>
+                    <h2 className="mt-1 text-lg font-bold">Additional prices</h2>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <FormField
+                        label="Customized name & number (AED)"
+                        value={String(addOnPricing.customization)}
+                        type="number"
+                        onChange={(value) => setAddOnPricing((current) => ({ ...current, customization: toNumber(value) }))}
+                      />
+                      <FormField
+                        label="Arm badge (AED)"
+                        value={String(addOnPricing.armBadge)}
+                        type="number"
+                        onChange={(value) => setAddOnPricing((current) => ({ ...current, armBadge: toNumber(value) }))}
+                      />
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button type="button" onClick={saveAddOnPricing} className="h-10 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground">
+                        Save prices
+                      </button>
+                    </div>
+                  </section>
+                )}
+                {settingSection !== "charges" && (
+                  <SettingsCrudPanel
+                    section={settingSection}
+                    leagues={leagues}
+                    rows={getActiveSettingRows()}
+                    editingForm={editingSetting}
+                    onChange={setEditingSetting}
+                    onEdit={(item) => setEditingSetting(createSettingForm(settingSection, item))}
+                    onCreate={() => setEditingSetting(createSettingForm(settingSection))}
+                    onCancel={() => setEditingSetting(null)}
+                    onSave={(form) => saveSetting(settingSection, form)}
+                    onDelete={(item) => deleteSetting(settingSection, item)}
+                  />
+                )}
               </section>
             )}
           </>
@@ -1364,6 +1809,7 @@ export default function AdminDashboard() {
           form={editingOrder}
           products={products}
           sizes={sizes}
+          addOnPricing={addOnPricing}
           message={actionMessage}
           onChange={setEditingOrder}
           onClose={() => setEditingOrder(null)}
@@ -1382,12 +1828,96 @@ export default function AdminDashboard() {
             setViewingOrder(null);
             setPrintingOrder(order);
           }}
+          onNotify={handleWhatsAppNotify}
         />
       )}
       {printingOrder && (
         <PrintSlipPreview order={printingOrder} onClose={() => setPrintingOrder(null)} />
       )}
     </div>
+  );
+}
+
+function LowStockPanel({
+  items,
+  onUpdateStock,
+}: {
+  items: {
+    inventoryId: string;
+    productName: string;
+    kitName: string;
+    size: string;
+    quantity: number;
+    reserved: number;
+  }[];
+  onUpdateStock: (inventoryId: string, newQuantity: number) => Promise<void>;
+}) {
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [inputVal, setInputVal] = useState<Record<string, string>>({});
+
+  const handleSave = async (id: string) => {
+    const val = inputVal[id];
+    if (val === undefined || val.trim() === "") return;
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 0) return;
+    setUpdatingId(id);
+    try {
+      await onUpdateStock(id, num);
+      setInputVal((current) => ({ ...current, [id]: "" }));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-background p-5">
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-4 mb-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Alerts</p>
+          <h2 className="mt-1 text-lg font-bold text-destructive">Low Stock Warnings</h2>
+        </div>
+        <span className="flex size-7 items-center justify-center rounded-full bg-destructive/10 text-xs font-bold text-destructive">
+          {items.length}
+        </span>
+      </div>
+      <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
+        {items.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">All items are sufficiently stocked.</p>
+        ) : (
+          items.map((item) => (
+            <article key={item.inventoryId} className="flex items-center justify-between gap-3 text-xs border-b border-border/50 pb-3 last:border-b-0 last:pb-0">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-foreground truncate">{item.productName}</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {item.kitName} · Size: <strong className="text-foreground">{item.size}</strong>
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Stock: <strong className="text-destructive">{item.quantity}</strong> {item.reserved > 0 && `(${item.reserved} reserved)`}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="New qty"
+                  value={inputVal[item.inventoryId] ?? ""}
+                  onChange={(e) => setInputVal((curr) => ({ ...curr, [item.inventoryId]: e.target.value }))}
+                  className="h-8 w-16 rounded border border-border bg-background px-2 text-center outline-none focus:border-primary text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={updatingId === item.inventoryId || (inputVal[item.inventoryId] ?? "").trim() === ""}
+                  onClick={() => handleSave(item.inventoryId)}
+                  className="h-8 rounded bg-primary px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/95 transition-colors"
+                >
+                  {updatingId === item.inventoryId ? "..." : "Set"}
+                </button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1423,18 +1953,22 @@ function OrdersPanel({
   orders: panelOrders,
   compact,
   onStatusChange,
+  onDeliveryStatusChange,
   onView,
   onEdit,
   onDelete,
   onPrint,
+  onNotify,
 }: {
   orders: DbOrder[];
   compact?: boolean;
   onStatusChange: (order: DbOrder, status: OrderStatus) => void;
+  onDeliveryStatusChange: (order: DbOrder, status: DeliveryStatus) => void;
   onView?: (order: DbOrder) => void;
   onEdit?: (order: DbOrder) => void;
   onDelete?: (order: DbOrder) => void;
   onPrint?: (order: DbOrder) => void;
+  onNotify?: (order: DbOrder) => void;
 }) {
   return (
     <section className="rounded-xl border border-border bg-background">
@@ -1459,9 +1993,12 @@ function OrdersPanel({
                   <span className={`rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${getStatusClass(order.status)}`}>
                     {getStatusLabel(order.status)}
                   </span>
+                  <span className={`rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${getDeliveryStatusClass(order.delivery_status ?? "pending")}`}>
+                    {deliveryStatusOptions.find((status) => status.id === (order.delivery_status ?? "pending"))?.label}
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {order.customer_name} · {order.customer_phone} · {order.township}, {order.region}
+                  {order.customer_name} · {order.customer_phone} · {order.region}, {order.country}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(order.created_at)} · {itemCount} item{itemCount === 1 ? "" : "s"}</p>
               </div>
@@ -1472,7 +2009,7 @@ function OrdersPanel({
                 <strong className="text-lg">{formatAed(order.total)}</strong>
               </div>
               <select
-                value={order.status}
+                value={getPaymentStatusValue(order.status)}
                 onChange={(event) => onStatusChange(order, event.target.value as OrderStatus)}
                 className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
               >
@@ -1480,8 +2017,22 @@ function OrdersPanel({
                   <option key={status.id} value={status.id}>{status.label}</option>
                 ))}
               </select>
+              <select
+                value={order.delivery_status ?? "pending"}
+                onChange={(event) => onDeliveryStatusChange(order, event.target.value as DeliveryStatus)}
+                className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50 lg:col-start-3"
+              >
+                {deliveryStatusOptions.map((status) => (
+                  <option key={status.id} value={status.id}>{status.label}</option>
+                ))}
+              </select>
               {!compact && (
                 <div className="flex flex-wrap gap-2 lg:col-span-3 lg:justify-end">
+                  {onNotify && (
+                    <button type="button" onClick={() => onNotify(order)} className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-emerald-500 hover:text-emerald-600">
+                      <WhatsAppIcon className="size-3.5 text-emerald-600" /> Notify
+                    </button>
+                  )}
                   {onView && (
                     <button type="button" onClick={() => onView(order)} className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-primary/50">
                       <Eye size={12} /> View
@@ -1734,7 +2285,7 @@ function PrintPanel({ orders }: { orders: DbOrder[] }) {
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-500">Deliver to</p>
                   <p className="mt-2 text-sm leading-6 text-neutral-700">
                     {selectedOrder.delivery_address}<br />
-                    {selectedOrder.township}, {selectedOrder.region}
+                    {selectedOrder.region}, {selectedOrder.country}
                   </p>
                 </div>
               </div>
@@ -1774,7 +2325,7 @@ function PrintPanel({ orders }: { orders: DbOrder[] }) {
                   <h3 className="text-xl font-bold">{selectedOrder.customer_name}</h3>
                   <p className="mt-2 text-sm leading-6 text-neutral-700">
                     {selectedOrder.delivery_address}<br />
-                    {selectedOrder.township}, {selectedOrder.region}
+                    {selectedOrder.region}, {selectedOrder.country}
                   </p>
                   <p className="mt-3 font-bold">{selectedOrder.customer_phone}</p>
                 </div>
@@ -1797,6 +2348,7 @@ function OrderEditor({
   form,
   products,
   sizes,
+  addOnPricing,
   message,
   onChange,
   onClose,
@@ -1805,16 +2357,15 @@ function OrderEditor({
   form: OrderFormState;
   products: DbProduct[];
   sizes: DbJerseySize[];
+  addOnPricing: AddOnPricing;
   message: string;
   onChange: (form: OrderFormState) => void;
   onClose: () => void;
   onSave: (form: OrderFormState) => Promise<void>;
 }) {
-  const [uploadingProof, setUploadingProof] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
   const setField = <K extends keyof OrderFormState>(key: K, value: OrderFormState[K]) => onChange({ ...form, [key]: value });
-  const subtotal = getOrderSubtotal(form.items);
-  const total = subtotal + toNumber(form.delivery_fee);
+  const availableRegions = deliveryRegions[form.country as keyof typeof deliveryRegions] ?? [];
 
   const setItem = (index: number, patch: Partial<OrderItemFormState>) => {
     onChange({
@@ -1851,39 +2402,6 @@ function OrderEditor({
     });
   };
 
-  const uploadPaymentProof = async (file: File) => {
-    if (!allowedProductImageTypes.has(file.type)) {
-      window.alert("Only JPG, PNG, and WebP voucher images are allowed.");
-      return;
-    }
-
-    if (file.size > maxPaymentProofBytes) {
-      window.alert("Payment voucher must be 5 MB or smaller.");
-      return;
-    }
-
-    setUploadingProof(true);
-    const supabase = createSupabaseBrowserClient();
-    const extensionByType: Record<string, string> = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-    };
-    const orderNumber = slugify(form.order_number || `order-${Date.now()}`) || "order";
-    const path = `manual/${orderNumber}-${crypto.randomUUID()}.${extensionByType[file.type]}`;
-    const { error } = await supabase.storage.from("payment-proofs").upload(path, file, {
-      cacheControl: "3600",
-      upsert: true,
-    });
-
-    if (error) {
-      window.alert(error.message);
-    } else {
-      setField("payment_storage_path", path);
-    }
-    setUploadingProof(false);
-  };
-
   const handleSave = async () => {
     setSavingOrder(true);
     try {
@@ -1916,16 +2434,41 @@ function OrderEditor({
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <FormField label="Order no." value={form.order_number} onChange={(value) => setField("order_number", value)} />
             <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Status
-              <select value={form.status} onChange={(event) => setField("status", event.target.value as OrderStatus)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+              Payment status
+              <select value={getPaymentStatusValue(form.status)} onChange={(event) => setField("status", event.target.value as OrderStatus)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
                 {orderStatusOptions.map((status) => <option key={status.id} value={status.id}>{status.label}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Delivery status
+              <select value={form.delivery_status} onChange={(event) => setField("delivery_status", event.target.value as DeliveryStatus)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                {deliveryStatusOptions.map((status) => <option key={status.id} value={status.id}>{status.label}</option>)}
               </select>
             </label>
             <FormField label="Customer" value={form.customer_name} onChange={(value) => setField("customer_name", value)} />
             <FormField label="Phone" value={form.customer_phone} onChange={(value) => setField("customer_phone", value)} />
             <FormField label="Email" value={form.customer_email} onChange={(value) => setField("customer_email", value)} />
-            <FormField label="Region" value={form.region} onChange={(value) => setField("region", value)} />
-            <FormField label="Township" value={form.township} onChange={(value) => setField("township", value)} />
+            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Country
+              <select
+                value={form.country}
+                onChange={(event) => onChange({ ...form, country: event.target.value, region: "" })}
+                className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+              >
+                {Object.keys(deliveryRegions).map((country) => <option key={country}>{country}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Region
+              <select
+                value={form.region}
+                onChange={(event) => setField("region", event.target.value)}
+                className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+              >
+                <option value="">Select region</option>
+                {availableRegions.map((region) => <option key={region}>{region}</option>)}
+              </select>
+            </label>
             <FormField label="Delivery fee" value={form.delivery_fee} type="number" onChange={(value) => setField("delivery_fee", value)} />
             <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground md:col-span-2">
               Delivery address
@@ -1950,42 +2493,67 @@ function OrderEditor({
                 const variant = product?.product_variants?.find((variantItem) => variantItem.id === item.variant_id);
                 const itemSizes = variant?.inventory?.map((row) => row.size) ?? sortByOrder(sizes).map((size) => size.label);
                 return (
-                  <article key={index} className="grid gap-4 rounded-lg bg-muted/30 p-4">
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(220px,2fr)_minmax(150px,1fr)_minmax(110px,0.75fr)_minmax(96px,0.6fr)_minmax(140px,0.85fr)]">
-                      <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                        Product
-                        <select value={item.product_id} onChange={(event) => applyProduct(index, event.target.value)} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
-                          <option value="">Select product</option>
-                          {products.map((productItem) => <option key={productItem.id} value={productItem.id}>{productItem.name}</option>)}
-                        </select>
-                      </label>
-                      <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                        Kit
-                        <select value={item.variant_id} onChange={(event) => applyVariant(index, event.target.value)} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
-                          <option value="">Select kit</option>
-                          {(product?.product_variants ?? []).map((variantItem) => <option key={variantItem.id} value={variantItem.id}>{variantItem.name}</option>)}
-                        </select>
-                      </label>
-                      <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                        Size
-                        <select value={item.size} onChange={(event) => setItem(index, { size: event.target.value })} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
-                          <option value="">Size</option>
-                          {itemSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                        </select>
-                      </label>
+                  <article key={index} className="space-y-3 rounded-lg bg-muted/30 p-4">
+                    <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                    <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Product
+                      <select value={item.product_id} onChange={(event) => applyProduct(index, event.target.value)} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                        <option value="">Select product</option>
+                        {products.map((productItem) => <option key={productItem.id} value={productItem.id}>{productItem.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Kit
+                      <select value={item.variant_id} onChange={(event) => applyVariant(index, event.target.value)} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                        <option value="">Select kit</option>
+                        {(product?.product_variants ?? []).map((variantItem) => <option key={variantItem.id} value={variantItem.id}>{variantItem.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Size
+                      <select value={item.size} onChange={(event) => setItem(index, { size: event.target.value })} className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                        <option value="">Size</option>
+                        {itemSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                      </select>
+                    </label>
+                    </div>
+                    <div className="grid items-end gap-3 md:grid-cols-3">
+                    <div className="min-w-0">
                       <FormField label="Qty" value={item.quantity} type="number" onChange={(value) => setItem(index, { quantity: value })} />
+                    </div>
+                    <div className="min-w-0">
                       <FormField label="Unit price" value={item.unit_price} type="number" onChange={(value) => setItem(index, { unit_price: value })} />
                     </div>
-                    <div className="grid items-end gap-3 md:grid-cols-[minmax(0,1fr)_120px] lg:grid-cols-[minmax(160px,1fr)_120px_minmax(120px,1fr)_auto]">
-                      <FormField label="Custom name" value={item.custom_name} onChange={(value) => setItem(index, { custom_name: value.toUpperCase().slice(0, 12) })} />
-                      <FormField label="Number" value={item.custom_number} onChange={(value) => setItem(index, { custom_number: value.replace(/\D/g, "").slice(0, 2) })} />
-                      <div className="rounded-lg bg-background/70 px-3 py-2 text-right md:col-span-2 lg:col-span-1">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Line total</p>
-                        <strong className="mt-1 block text-sm">{formatMmk(toNumber(item.quantity, 1) * toNumber(item.unit_price))}</strong>
+                    <div className="grid min-w-0 gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Line total</span>
+                      <div className="flex h-11 items-center justify-end rounded-lg border border-border bg-background px-4">
+                        <strong className="text-sm">{formatAed(getOrderItemTotal(item, addOnPricing))}</strong>
                       </div>
-                      <button type="button" onClick={() => setField("items", form.items.filter((_, itemIndex) => itemIndex !== index))} className="h-11 rounded-full border border-border px-4 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-destructive/40 hover:text-destructive">
-                        Remove
-                      </button>
+                    </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                    <details className="group min-w-0 flex-1 rounded-lg border border-border bg-background">
+                      <summary className="flex h-11 cursor-pointer list-none items-center justify-between px-4 text-[10px] font-bold uppercase tracking-[0.12em]">
+                        <span>Additional</span>
+                        <span className="text-muted-foreground group-open:hidden">Add options</span>
+                        <span className="text-muted-foreground group-open:inline">Close</span>
+                      </summary>
+                      <div className="grid gap-3 border-t border-border p-4 md:grid-cols-3">
+                        <FormField label={`Customized name (+${formatAed(addOnPricing.customization)})`} value={item.custom_name} onChange={(value) => setItem(index, { custom_name: value.toUpperCase().slice(0, 12) })} />
+                        <FormField label="Number" value={item.custom_number} onChange={(value) => setItem(index, { custom_number: value.replace(/\D/g, "").slice(0, 2) })} />
+                        <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                          Arm badge (+{formatAed(addOnPricing.armBadge)})
+                          <select value={item.arm_badge} onChange={(event) => setItem(index, { arm_badge: event.target.value as ArmBadge })} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                            <option value="">No badge</option>
+                            <option value="ucl">UCL Badge</option>
+                            <option value="epl">EPL Badge</option>
+                          </select>
+                        </label>
+                      </div>
+                    </details>
+                    <button type="button" onClick={() => setField("items", form.items.filter((_, itemIndex) => itemIndex !== index))} className="h-11 shrink-0 rounded-lg border border-border px-5 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-destructive/40 hover:text-destructive">
+                      Remove
+                    </button>
                     </div>
                   </article>
                 );
@@ -1993,36 +2561,6 @@ function OrderEditor({
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 rounded-xl border border-border p-4 lg:grid-cols-4">
-            <FormField label="Payment amount" value={form.payment_amount || String(total)} type="number" onChange={(value) => setField("payment_amount", value)} />
-            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              Provider
-              <select value={form.payment_provider} onChange={(event) => setField("payment_provider", event.target.value as PaymentProvider)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
-                <option value="kpay">KBZPay</option>
-                <option value="wave">WavePay</option>
-              </select>
-            </label>
-            <FormField label="Transaction ID" value={form.payment_transaction_id} onChange={(value) => setField("payment_transaction_id", value)} />
-            <FormField label="Voucher path or URL" value={form.payment_storage_path} onChange={(value) => setField("payment_storage_path", value)} />
-            <label className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground hover:border-primary/50">
-              {uploadingProof ? "Uploading voucher..." : "Upload voucher"}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void uploadPaymentProof(file);
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            <div className="rounded-lg bg-muted/40 p-4 lg:col-span-4">
-              <div className="flex justify-between text-sm"><span>Subtotal</span><strong>{formatMmk(subtotal)}</strong></div>
-              <div className="mt-2 flex justify-between text-sm"><span>Delivery</span><strong>{formatMmk(toNumber(form.delivery_fee))}</strong></div>
-              <div className="mt-3 flex justify-between border-t border-border pt-3 text-lg"><span>Total</span><strong>{formatMmk(total)}</strong></div>
-            </div>
-          </section>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-border p-5">
@@ -2041,11 +2579,13 @@ function OrderDetailModal({
   onClose,
   onEdit,
   onPrint,
+  onNotify,
 }: {
   order: DbOrder;
   onClose: () => void;
   onEdit: (order: DbOrder) => void;
   onPrint: (order: DbOrder) => void;
+  onNotify?: (order: DbOrder) => void;
 }) {
   return (
     <div className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
@@ -2064,7 +2604,7 @@ function OrderDetailModal({
               <p className="mt-3 text-sm font-semibold">{order.customer_name}</p>
               <p className="mt-1 text-sm text-muted-foreground">{order.customer_phone}</p>
               {order.customer_email && <p className="mt-1 text-sm text-muted-foreground">{order.customer_email}</p>}
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{order.delivery_address}<br />{order.township}, {order.region}</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{order.delivery_address}<br />{order.region}, {order.country}</p>
             </section>
             <section className="rounded-xl border border-border p-4">
               <h3 className="font-bold">Payment</h3>
@@ -2081,15 +2621,64 @@ function OrderDetailModal({
                   <div>
                     <p className="font-semibold">{item.product_name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{item.kit_name} / {item.size} / Qty {item.quantity}</p>
-                    {(item.custom_name || item.custom_number) && <p className="mt-1 text-xs text-muted-foreground">Print: {item.custom_name || "-"} #{item.custom_number || "-"}</p>}
+                    {(item.custom_name || item.custom_number) && <p className="mt-1 text-xs text-muted-foreground">Print: {item.custom_name || "-"} #{item.custom_number || "-"} · +{formatAed(item.customization_fee)}</p>}
+                    {item.arm_badge && <p className="mt-1 text-xs text-muted-foreground">{item.arm_badge.toUpperCase()} Badge · +{formatAed(item.arm_badge_fee)}</p>}
                   </div>
-                  <strong>{formatMmk(item.line_total)}</strong>
+                  <strong>{formatAed(item.line_total)}</strong>
                 </div>
               ))}
             </div>
           </section>
+
+          <section className="mt-5 rounded-xl border border-border bg-background p-4">
+            <h3 className="font-bold border-b border-border pb-3 mb-4">Status Timeline</h3>
+            {(!order.order_status_history || order.order_status_history.length === 0) ? (
+              <p className="text-xs text-muted-foreground">No history recorded yet.</p>
+            ) : (
+              <div className="relative border-l border-border pl-4 space-y-5 py-2">
+                {[...order.order_status_history]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((log) => (
+                    <div key={log.id} className="relative">
+                      <span className="absolute -left-[21px] top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-primary" />
+                      <div className="flex flex-col gap-1 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-foreground">
+                            {getBurmeseOrderStatus(log.to_status)}
+                          </span>
+                          {log.from_status && (
+                            <span className="text-[10px] text-muted-foreground">
+                              ({getBurmeseOrderStatus(log.from_status)} မှ)
+                            </span>
+                          )}
+                        </div>
+                        {log.note && (
+                          <p className="text-muted-foreground text-[11px] leading-relaxed">
+                            {log.note}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground/80 mt-0.5">
+                          <time dateTime={log.created_at}>{formatDateTime(log.created_at)}</time>
+                          {log.profiles?.display_name && (
+                            <>
+                              <span>·</span>
+                              <span>By: {log.profiles.display_name}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
         </div>
         <div className="flex flex-wrap justify-end gap-3 border-t border-border p-5">
+          {onNotify && (
+            <button type="button" onClick={() => onNotify(order)} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em] hover:border-emerald-500 hover:text-emerald-600">
+              <WhatsAppIcon className="size-3.5 text-emerald-600" /> Notify WhatsApp
+            </button>
+          )}
           <button type="button" onClick={() => onEdit(order)} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]"><Edit3 size={13} /> Edit</button>
           <button type="button" onClick={() => onPrint(order)} className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground"><Printer size={13} /> Preview slip</button>
         </div>
@@ -2141,7 +2730,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
               <Image src="/assets/tisa-logo.png" alt="TISA logo" width={42} height={42} className="rounded-md" />
               <div>
                 <h1 className="text-xl font-black tracking-[0.18em]">TISA</h1>
-                <p className="text-[9px] uppercase tracking-[0.14em] text-neutral-500">Payment voucher slip</p>
+                <p className="text-[9px] uppercase tracking-[0.14em] text-neutral-500">Order slip</p>
               </div>
             </div>
             <div className="grid gap-3 border-b border-neutral-300 py-4 text-xs">
@@ -2149,7 +2738,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Date</span><strong>{formatDateTime(order.created_at)}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Customer</span><strong className="text-right">{order.customer_name}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Phone</span><strong>{order.customer_phone}</strong></div>
-              <p className="leading-5 text-neutral-700">{order.delivery_address}<br />{order.township}, {order.region}</p>
+              <p className="leading-5 text-neutral-700">{order.delivery_address}<br />{order.region}, {order.country}</p>
             </div>
             <div className="border-b border-neutral-300 py-4">
               <h2 className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Items</h2>
@@ -2160,7 +2749,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                       <p className="font-semibold">{item.product_name}</p>
                       <p className="text-[10px] text-neutral-500">{item.kit_name} / {item.size} / Qty {item.quantity}</p>
                     </div>
-                    <strong>{formatMmk(item.line_total)}</strong>
+                    <strong>{formatAed(item.line_total)}</strong>
                   </div>
                 ))}
               </div>
@@ -2170,43 +2759,9 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
               <div className="mt-1 flex justify-between text-xs"><span>Delivery</span><strong>{formatMmk(order.delivery_fee)}</strong></div>
               <div className="mt-2 flex justify-between border-t border-neutral-300 pt-2 text-base font-bold"><span>Total</span><strong>{formatMmk(order.total)}</strong></div>
             </div>
-            {order.payment_proofs?.[0] && (
-              <div className="border-t border-neutral-300 pt-4">
-                <h2 className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Payment voucher</h2>
-                <p className="mt-1 break-all text-[10px] text-neutral-600">{order.payment_proofs[0].transaction_id}</p>
-                <PaymentProofImage path={order.payment_proofs[0].storage_path} />
-              </div>
-            )}
           </article>
         </section>
       </div>
-    </div>
-  );
-}
-
-function PaymentProofImage({ path }: { path: string }) {
-  const [url, setUrl] = useState(path);
-
-  useEffect(() => {
-    let mounted = true;
-    async function loadProofUrl() {
-      if (path.startsWith("http") || path.startsWith("/")) {
-        setUrl(path);
-        return;
-      }
-      const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase.storage.from("payment-proofs").createSignedUrl(path, 60 * 10);
-      if (mounted && data?.signedUrl) setUrl(data.signedUrl);
-    }
-    loadProofUrl();
-    return () => {
-      mounted = false;
-    };
-  }, [path]);
-
-  return (
-    <div className="relative mt-3 h-40 overflow-hidden rounded-lg border border-neutral-300 bg-neutral-100">
-      <Image src={url} alt="Payment voucher" fill unoptimized className="object-contain" />
     </div>
   );
 }
@@ -2357,6 +2912,7 @@ function ProductEditor({
 }) {
   const [uploadingField, setUploadingField] = useState("");
   const selectedLeagueTeams = form.league_id ? teams.filter((team) => team.league_id === form.league_id) : teams;
+  const selectedSizes = sortByOrder(sizes).filter((size) => form.size_ids.includes(size.id));
 
   const setField = <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {
     onChange({ ...form, [key]: value });
@@ -2377,6 +2933,16 @@ function ProductEditor({
       ? form.size_ids.filter((id) => id !== sizeId)
       : [...form.size_ids, sizeId];
     setField("size_ids", nextSizeIds);
+  };
+
+  const setVariantStock = (kit: KitVariant, size: string, value: string) => {
+    const sanitizedValue = value.replace(/\D/g, "");
+    setVariant(kit, {
+      stockBySize: {
+        ...form.variants[kit].stockBySize,
+        [size]: sanitizedValue,
+      },
+    });
   };
 
   const uploadVariantImage = async (kit: KitVariant, side: "front" | "back", file: File) => {
@@ -2462,8 +3028,7 @@ function ProductEditor({
               onChange={(seasonId) => setField("season_id", seasonId)}
             />
             <FormField label="Fabric" value={form.fabric} onChange={(value) => setField("fabric", value)} />
-            <FormField label="Accent color" value={form.accent_color} onChange={(value) => setField("accent_color", value)} />
-            <FormField label="Country colors" value={form.country_colors} onChange={(value) => setField("country_colors", value)} />
+            <ThemeColorsField value={form.country_colors} onChange={(value) => setField("country_colors", value)} />
             <div className="grid gap-2 md:col-span-2">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sizes</p>
               <div className="flex flex-wrap gap-2">
@@ -2494,7 +3059,7 @@ function ProductEditor({
                 <option value="archived">Archived</option>
               </select>
             </label>
-            <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-sm">
+            <label className="flex h-11 self-end items-center gap-3 rounded-lg border border-border px-3 text-sm">
               <input
                 checked={form.featured}
                 onChange={(event) => setField("featured", event.target.checked)}
@@ -2534,7 +3099,6 @@ function ProductEditor({
                     <FormField label="Variant name" value={variant.name} onChange={(value) => setVariant(kit.id, { name: value })} />
                     <FormField label="SKU" value={variant.sku} onChange={(value) => setVariant(kit.id, { sku: value })} />
                     <FormField label="Price" value={variant.price} type="number" onChange={(value) => setVariant(kit.id, { price: value })} />
-                    <FormField label="Total stock" value={variant.stock} type="number" onChange={(value) => setVariant(kit.id, { stock: value })} />
                     <FormField label="Front image path" value={variant.image_front_path} onChange={(value) => setVariant(kit.id, { image_front_path: value })} />
                     <ImageUploadField
                       label={uploadingField === `${kit.id}-front` ? "Uploading front..." : "Upload front image"}
@@ -2550,6 +3114,92 @@ function ProductEditor({
               );
             })}
           </div>
+
+          <section className="mt-6 overflow-hidden rounded-xl border border-border">
+            <div className="border-b border-border bg-muted/30 px-4 py-3">
+              <h3 className="font-bold">Inventory by size and kit</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enter the exact quantity available for each size. Disabled kits are saved with zero stock.
+              </p>
+            </div>
+            {selectedSizes.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">Select at least one size above to manage inventory.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-border text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      <th className="px-4 py-3">Size</th>
+                      {kitOptions.map((kit) => (
+                        <th key={kit.id} className="px-3 py-3">
+                          {kit.label}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedSizes.map((size) => {
+                      const rowTotal = kitOptions.reduce(
+                        (total, kit) => total + (form.variants[kit.id].available
+                          ? toNumber(form.variants[kit.id].stockBySize[size.label])
+                          : 0),
+                        0,
+                      );
+
+                      return (
+                        <tr key={size.id} className="border-b border-border last:border-0">
+                          <th className="px-4 py-3 text-sm font-bold">{size.label}</th>
+                          {kitOptions.map((kit) => {
+                            const variant = form.variants[kit.id];
+                            return (
+                              <td key={kit.id} className="px-3 py-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  inputMode="numeric"
+                                  value={variant.available ? (variant.stockBySize[size.label] ?? "0") : "0"}
+                                  onChange={(event) => setVariantStock(kit.id, size.label, event.target.value)}
+                                  disabled={!variant.available}
+                                  aria-label={`${size.label} ${kit.label} stock`}
+                                  className="h-10 w-full min-w-20 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="px-4 py-3 text-right text-sm font-bold">{rowTotal}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/20 text-sm font-bold">
+                      <th className="px-4 py-3">Kit total</th>
+                      {kitOptions.map((kit) => {
+                        const variant = form.variants[kit.id];
+                        const total = variant.available
+                          ? selectedSizes.reduce(
+                            (sum, size) => sum + toNumber(variant.stockBySize[size.label]),
+                            0,
+                          )
+                          : 0;
+                        return <td key={kit.id} className="px-3 py-3">{total}</td>;
+                      })}
+                      <td className="px-4 py-3 text-right">
+                        {selectedSizes.reduce((total, size) => total + kitOptions.reduce(
+                          (rowTotal, kit) => rowTotal + (form.variants[kit.id].available
+                            ? toNumber(form.variants[kit.id].stockBySize[size.label])
+                            : 0),
+                          0,
+                        ), 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-border p-5">
@@ -2605,7 +3255,7 @@ function SearchSelectField({
   const selected = options.find((option) => option.id === value);
 
   return (
-    <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+    <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
       {label}
       <input
         key={`${value}-${options.length}`}
@@ -2621,7 +3271,7 @@ function SearchSelectField({
           event.currentTarget.value = current?.label ?? "";
         }}
         placeholder={`Search ${label.toLowerCase()}...`}
-        className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+        className="h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
       />
       <datalist id={datalistId}>
         {options.map((option) => (
@@ -2653,6 +3303,48 @@ function FormField({
         className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
       />
     </label>
+  );
+}
+
+function ThemeColorsField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const colors = getThemeColors(value);
+  const labels = ["Primary", "Secondary", "Tertiary"];
+
+  const setColor = (index: number, color: string) => {
+    const nextColors = [...colors];
+    nextColors[index] = color;
+    onChange(nextColors.join(", "));
+  };
+
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+        Theme colors
+      </legend>
+      <div className="grid grid-cols-3 gap-2">
+        {colors.map((color, index) => (
+          <label
+            key={labels[index]}
+            className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground focus-within:border-primary"
+          >
+            <input
+              type="color"
+              value={color}
+              onChange={(event) => setColor(index, event.target.value)}
+              aria-label={`${labels[index]} theme color`}
+              className="size-7 cursor-pointer rounded border-0 bg-transparent p-0"
+            />
+            <span className="truncate">{labels[index]}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

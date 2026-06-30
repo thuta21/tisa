@@ -19,7 +19,6 @@ export type Jersey = {
   image_back?: string;
   kit_images?: Partial<Record<KitVariant, string>>;
   kits: Record<KitVariant, JerseyKit>;
-  accent_color: string;
   country_colors: [string, string, string?];
   featured: boolean;
   fabric: string;
@@ -81,7 +80,6 @@ export const jerseys: Jersey[] = [
       away: { image: "/assets/tisa-shirt.png", available: true, price: 91000 },
       third: { image: "/assets/tisa-shirt.png", available: true, price: 94000 },
     },
-    accent_color: "#facc15",
     country_colors: ["#009b3a", "#facc15", "#002776"],
     featured: true,
     fabric: "Performance knit",
@@ -109,7 +107,6 @@ export const jerseys: Jersey[] = [
       away: { image: "/assets/tisa-shirt.png", available: true, price: 92000 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
-    accent_color: "#dd0000",
     country_colors: ["#111111", "#dd0000", "#ffce00"],
     featured: true,
     fabric: "Performance knit",
@@ -137,7 +134,6 @@ export const jerseys: Jersey[] = [
       away: { image: "/assets/tisa-shirt.png", available: false },
       third: { image: "/assets/tisa-shirt.png", available: true, price: 96000 },
     },
-    accent_color: "#cf142b",
     country_colors: ["#ffffff", "#cf142b", "#1d2b53"],
     featured: true,
     fabric: "Performance knit",
@@ -165,7 +161,6 @@ export const jerseys: Jersey[] = [
       away: { image: "/assets/tisa-shirt.png", available: true, price: 82000 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
-    accent_color: "#ffc400",
     country_colors: ["#aa151b", "#ffc400", "#7a0f13"],
     featured: true,
     fabric: "Performance knit",
@@ -193,7 +188,6 @@ export const jerseys: Jersey[] = [
       away: { image: "/assets/tisa-shirt.png", available: false },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
-    accent_color: "#75aadb",
     country_colors: ["#75aadb", "#ffffff", "#f6b40e"],
     featured: true,
     fabric: "Performance knit",
