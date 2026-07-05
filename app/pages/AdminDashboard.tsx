@@ -42,7 +42,7 @@ import { type DbFont } from "@/lib/jerseys";
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
 type AdminTab = "overview" | "orders" | "products" | "payments" | "print" | "settings";
-type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges" | "fonts";
+type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges" | "payment_methods" | "fonts";
 type KitVariant = "home" | "away" | "third";
 type ProductStatus = "draft" | "active" | "archived";
 type OrderStatus =
@@ -55,7 +55,7 @@ type OrderStatus =
   | "cancelled"
   | "payment_rejected";
 type PaymentProvider = "kpay" | "wave";
-type OrderPaymentMethod = "cod" | "bank_pay";
+type OrderPaymentMethod = string;
 type PaymentStatus = "pending" | "verified" | "rejected";
 type DeliveryStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
 type OrderPaymentFilter = "all" | "paid" | "unpaid";
@@ -123,6 +123,7 @@ type DbOrder = {
   status: OrderStatus;
   delivery_status: DeliveryStatus;
   payment_method: OrderPaymentMethod;
+  payment_method_name?: string;
   customer_note: string | null;
   admin_note: string | null;
   created_at: string;
@@ -192,6 +193,22 @@ type DbJerseySize = {
   id: string;
   label: string;
   sort_order: number;
+};
+
+type DbPaymentMethod = {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: number;
+};
+
+type PaymentMethodFormState = {
+  id?: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: string;
 };
 
 type DbTeam = {
@@ -358,6 +375,7 @@ const settingSections: {
   { id: "teams", label: "Teams", icon: Shirt },
   { id: "seasons", label: "Seasons", icon: CalendarDays },
   { id: "charges", label: "Charges", icon: Banknote },
+  { id: "payment_methods", label: "Payment Methods", icon: CreditCard },
   { id: "fonts", label: "Fonts", icon: Type },
 ];
 
@@ -577,8 +595,15 @@ function getPaymentLabel(method?: PaymentProvider | "cod") {
   return labels[method ?? "cod"];
 }
 
-function getOrderPaymentMethodLabel(method?: OrderPaymentMethod) {
-  return method === "bank_pay" ? "Bank Pay" : "COD";
+function getOrderPaymentMethodLabel(method?: OrderPaymentMethod, configuredName?: string) {
+  if (configuredName) return configuredName;
+  if (!method || method === "cod") return "COD";
+  if (method === "bank_pay") return "Bank Pay";
+  return method
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function getPublicProductImage(path?: string | null) {
@@ -620,7 +645,7 @@ function createEmptyOrderItem(): OrderItemFormState {
   };
 }
 
-function createEmptyOrderForm(): OrderFormState {
+function createEmptyOrderForm(paymentMethods: DbPaymentMethod[] = []): OrderFormState {
   return {
     order_number: `TISA-${Date.now().toString().slice(-6)}`,
     customer_name: "",
@@ -632,7 +657,7 @@ function createEmptyOrderForm(): OrderFormState {
     delivery_fee: "0",
     status: "awaiting_payment",
     delivery_status: "pending",
-    payment_method: "cod",
+    payment_method: paymentMethods.find((method) => method.is_active)?.slug ?? "cod",
     customer_note: "",
     admin_note: "",
     items: [createEmptyOrderItem()],
@@ -773,10 +798,12 @@ export default function AdminDashboard() {
   const [teams, setTeams] = useState<DbTeam[]>([]);
   const [seasons, setSeasons] = useState<DbSeason[]>([]);
   const [sizes, setSizes] = useState<DbJerseySize[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<DbPaymentMethod[]>([]);
   const [addOnPricing, setAddOnPricing] = useState<AddOnPricing>({ customization: 2, armBadge: 5 });
   const [settingSection, setSettingSection] = useState<SettingSection>("leagues");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<SettingFormState | null>(null);
+  const [editingPaymentMethod, setEditingPaymentMethod] = useState<PaymentMethodFormState | null>(null);
   const [editingProduct, setEditingProduct] = useState<ProductFormState | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderFormState | null>(null);
   const [viewingOrder, setViewingOrder] = useState<DbOrder | null>(null);
@@ -792,7 +819,7 @@ export default function AdminDashboard() {
     setActionMessage("");
     const supabase = createSupabaseBrowserClient();
 
-    const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult, pricingResult] = await Promise.all([
+    const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult, paymentMethodsResult, pricingResult] = await Promise.all([
       supabase
         .from("orders")
         .select("*, order_items(*), payment_proofs(*), order_status_history(*, profiles(display_name))")
@@ -809,6 +836,7 @@ export default function AdminDashboard() {
       supabase.from("teams").select("*, leagues(id, name)").order("sort_order", { ascending: true }).order("name", { ascending: true }),
       supabase.from("seasons").select("*").order("sort_order", { ascending: true }).order("name", { ascending: true }),
       supabase.from("jersey_sizes").select("*").order("sort_order", { ascending: true }).order("label", { ascending: true }),
+      supabase.from("payment_methods").select("*").order("sort_order", { ascending: true }).order("name", { ascending: true }),
       supabase.from("commerce_settings").select("customization_price, arm_badge_price").eq("id", true).maybeSingle(),
     ]);
 
@@ -826,17 +854,24 @@ export default function AdminDashboard() {
       teamsResult.error ??
       seasonsResult.error ??
       sizesResult.error ??
+      paymentMethodsResult.error ??
       pricingResult.error;
     if (firstError) {
       setActionMessage(firstError.message);
     } else {
-      setOrders((ordersResult.data ?? []) as DbOrder[]);
+      const loadedPaymentMethods = (paymentMethodsResult.data ?? []) as DbPaymentMethod[];
+      const paymentMethodNames = new Map(loadedPaymentMethods.map((method) => [method.slug, method.name]));
+      setOrders(((ordersResult.data ?? []) as DbOrder[]).map((order) => ({
+        ...order,
+        payment_method_name: paymentMethodNames.get(order.payment_method),
+      })));
       setProducts((productsResult.data ?? []) as DbProduct[]);
       setPaymentProofs((paymentsResult.data ?? []) as DbPaymentProof[]);
       setLeagues((leaguesResult.data ?? []) as DbLeague[]);
       setTeams((teamsResult.data ?? []) as DbTeam[]);
       setSeasons((seasonsResult.data ?? []) as DbSeason[]);
       setSizes((sizesResult.data ?? []) as DbJerseySize[]);
+      setPaymentMethods(loadedPaymentMethods);
       setFontsList((fontsResult.data ?? []) as DbFont[]);
       if (pricingResult.data) {
         setAddOnPricing({
@@ -1293,6 +1328,47 @@ export default function AdminDashboard() {
       arm_badge_price: Math.max(0, Math.floor(addOnPricing.armBadge)),
     });
     setActionMessage(error ? error.message : "Additional prices saved.");
+  };
+
+  const savePaymentMethod = async (form: PaymentMethodFormState) => {
+    const supabase = createSupabaseBrowserClient();
+    const name = form.name.trim();
+    const slug = slugify(form.slug || name);
+    if (!name || !slug) {
+      setActionMessage("Payment method name is required.");
+      return;
+    }
+
+    const payload = {
+      name,
+      slug,
+      is_active: form.is_active,
+      sort_order: toNumber(form.sort_order),
+    };
+    const result = form.id
+      ? await supabase.from("payment_methods").update(payload).eq("id", form.id)
+      : await supabase.from("payment_methods").insert(payload);
+
+    if (result.error) {
+      setActionMessage(result.error.message);
+      return;
+    }
+
+    setEditingPaymentMethod(null);
+    setActionMessage("Payment method saved.");
+    await loadAdminData();
+  };
+
+  const deletePaymentMethod = async (method: DbPaymentMethod) => {
+    if (!window.confirm(`Delete ${method.name}? Methods used by existing orders cannot be deleted.`)) return;
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("payment_methods").delete().eq("id", method.id);
+    if (error) {
+      setActionMessage(error.message);
+      return;
+    }
+    setActionMessage("Payment method deleted.");
+    await loadAdminData();
   };
 
   const handleSaveFont = async (e: React.FormEvent) => {
@@ -1883,7 +1959,7 @@ export default function AdminDashboard() {
                       type="button"
                       onClick={() => {
                         setActionMessage("");
-                        setEditingOrder(createEmptyOrderForm());
+                        setEditingOrder(createEmptyOrderForm(paymentMethods));
                       }}
                       className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground"
                     >
@@ -1988,6 +2064,8 @@ export default function AdminDashboard() {
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {settingSection === "charges"
                       ? "Manage additional prices for product customizations, such as print name & number, and arm badges."
+                      : settingSection === "payment_methods"
+                        ? "Add, rename, order, enable, or disable the payment methods available when creating orders."
                       : settingSection === "fonts"
                         ? "Manage custom team jersey fonts. Upload .ttf files, set pricing, and customize slugs to match jerseys."
                         : "Use the Settings submenu in the sidebar to switch between Leagues, Sizes, Teams, Seasons, and Charges."}
@@ -2177,7 +2255,30 @@ export default function AdminDashboard() {
                     )}
                   </section>
                 )}
-                {settingSection !== "charges" && settingSection !== "fonts" && (
+                {settingSection === "payment_methods" && (
+                  <PaymentMethodsPanel
+                    methods={paymentMethods}
+                    editingForm={editingPaymentMethod}
+                    onChange={setEditingPaymentMethod}
+                    onCreate={() => setEditingPaymentMethod({
+                      name: "",
+                      slug: "",
+                      is_active: true,
+                      sort_order: String((paymentMethods.at(-1)?.sort_order ?? 0) + 10),
+                    })}
+                    onEdit={(method) => setEditingPaymentMethod({
+                      id: method.id,
+                      name: method.name,
+                      slug: method.slug,
+                      is_active: method.is_active,
+                      sort_order: String(method.sort_order),
+                    })}
+                    onCancel={() => setEditingPaymentMethod(null)}
+                    onSave={savePaymentMethod}
+                    onDelete={deletePaymentMethod}
+                  />
+                )}
+                {settingSection !== "charges" && settingSection !== "payment_methods" && settingSection !== "fonts" && (
                   <SettingsCrudPanel
                     section={settingSection}
                     leagues={leagues}
@@ -2214,6 +2315,7 @@ export default function AdminDashboard() {
           form={editingOrder}
           products={products}
           sizes={sizes}
+          paymentMethods={paymentMethods}
           addOnPricing={addOnPricing}
           message={actionMessage}
           onChange={setEditingOrder}
@@ -2409,7 +2511,7 @@ function OrdersPanel({
               </div>
               <div className="flex items-center gap-3 lg:justify-end">
                 <span className="rounded-full bg-muted px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]">
-                  {getOrderPaymentMethodLabel(order.payment_method)}
+                  {getOrderPaymentMethodLabel(order.payment_method, order.payment_method_name)}
                 </span>
                 <strong className="text-lg">{formatAed(order.total)}</strong>
               </div>
@@ -2666,10 +2768,13 @@ function PrintPanel({ orders }: { orders: DbOrder[] }) {
           <div id="admin-print-document" className="mx-auto grid max-w-4xl gap-5 bg-white text-black print:block">
             <article className="rounded-lg border border-neutral-300 p-6 print:rounded-none print:border-0 print:p-0">
               <div className="flex items-start justify-between gap-6 border-b border-neutral-300 pb-5">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500">Invoice</p>
-                  <h2 className="mt-1 text-2xl font-bold">TISA</h2>
-                  <p className="mt-1 text-sm text-neutral-600">Premium match jersey showroom</p>
+                <div className="flex items-center gap-3">
+                  <Image src="/assets/tisa-logo.png" alt="TISA logo" width={48} height={48} className="rounded-lg" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500">Invoice</p>
+                    <h2 className="mt-1 text-2xl font-bold">TISA Sportwears</h2>
+                    {/* <p className="mt-1 text-sm text-neutral-600">Premium match jersey showroom</p> */}
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold">{selectedOrder.order_number}</p>
@@ -2706,7 +2811,15 @@ function PrintPanel({ orders }: { orders: DbOrder[] }) {
                 <tbody>
                   {(selectedOrder.order_items ?? []).map((item) => (
                     <tr key={item.id} className="border-b border-neutral-200">
-                      <td className="py-3 font-medium">{item.product_name}</td>
+                      <td className="py-3">
+                        <p className="font-medium">{item.product_name}</p>
+                        {(item.custom_name || item.custom_number) && (
+                          <p className="mt-1 text-xs text-neutral-600">Customize Name &amp; Number x {item.quantity}</p>
+                        )}
+                        {item.arm_badge && (
+                          <p className="mt-1 text-xs text-neutral-600">Arm Badge x {item.quantity}</p>
+                        )}
+                      </td>
                       <td className="py-3">{item.kit_name}</td>
                       <td className="py-3">{item.size}</td>
                       <td className="py-3 text-right">{item.quantity}</td>
@@ -2752,6 +2865,7 @@ function OrderEditor({
   form,
   products,
   sizes,
+  paymentMethods,
   addOnPricing,
   message,
   onChange,
@@ -2761,6 +2875,7 @@ function OrderEditor({
   form: OrderFormState;
   products: DbProduct[];
   sizes: DbJerseySize[];
+  paymentMethods: DbPaymentMethod[];
   addOnPricing: AddOnPricing;
   message: string;
   onChange: (form: OrderFormState) => void;
@@ -2840,8 +2955,9 @@ function OrderEditor({
             <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
               Payment method
               <select value={form.payment_method} onChange={(event) => setField("payment_method", event.target.value as OrderPaymentMethod)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
-                <option value="cod">Cash on Delivery (COD)</option>
-                <option value="bank_pay">Bank Pay</option>
+                {paymentMethods
+                  .filter((method) => method.is_active || method.slug === form.payment_method)
+                  .map((method) => <option key={method.id} value={method.slug}>{method.name}</option>)}
               </select>
             </label>
             <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
@@ -3025,7 +3141,7 @@ function OrderDetailModal({
             <section className="rounded-xl border border-border p-4">
               <h3 className="font-bold">Payment</h3>
               <p className="mt-3 text-sm text-muted-foreground">Status: {getStatusLabel(order.status)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Method: {getOrderPaymentMethodLabel(order.payment_method)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Method: {getOrderPaymentMethodLabel(order.payment_method, order.payment_method_name)}</p>
               <p className="mt-3 text-xl font-bold">{formatAed(order.total)}</p>
             </section>
           </div>
@@ -3194,7 +3310,6 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Date</span><strong>{formatDateTime(order.created_at)}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Customer</span><strong className="text-right">{order.customer_name}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Phone</span><strong>{order.customer_phone}</strong></div>
-              <div className="flex justify-between gap-3"><span className="text-neutral-500">Payment</span><strong>{getOrderPaymentMethodLabel(order.payment_method)}</strong></div>
               <div className="grid gap-1">
                 <span className="text-neutral-500">Address</span>
                 <strong className="leading-5">
@@ -3209,16 +3324,25 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                   <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 text-xs">
                     <div>
                       <p className="font-semibold">{item.product_name} × {item.quantity}</p>
+                      {(item.custom_name || item.custom_number) && (
+                        <p className="mt-1 text-[10px] text-neutral-600">
+                          Customize Name &amp; Number x {item.quantity}
+                        </p>
+                      )}
+                      {item.arm_badge && (
+                        <p className="mt-1 text-[10px] text-neutral-600">
+                          Arm Badge x {item.quantity}
+                        </p>
+                      )}
                     </div>
-                    <strong>{formatAed(item.line_total)}</strong>
+                    {/* <strong>{formatAed(item.line_total)}</strong> */}
                   </div>
                 ))}
               </div>
             </div>
-            <div className="py-4">
-              <div className="flex justify-between text-xs"><span>Subtotal</span><strong>{formatAed(order.subtotal)}</strong></div>
-              <div className="mt-1 flex justify-between text-xs"><span>Delivery</span><strong>{formatAed(order.delivery_fee)}</strong></div>
-              <div className="mt-2 flex justify-between border-t border-neutral-300 pt-2 text-base font-bold"><span>Total</span><strong>{formatAed(order.total)}</strong></div>
+            <div className="flex justify-between gap-3 py-4 text-sm">
+              <span className="text-neutral-500">Payment Method</span>
+              <strong>{getOrderPaymentMethodLabel(order.payment_method, order.payment_method_name)}</strong>
             </div>
             <div className="border-t border-neutral-300 pt-3 text-center">
               <p className="text-[10px] font-semibold">Thank you for shopping with TISA.</p>
@@ -3228,6 +3352,94 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
         </section>
       </div>
     </div>
+  );
+}
+
+function PaymentMethodsPanel({
+  methods,
+  editingForm,
+  onChange,
+  onCreate,
+  onEdit,
+  onCancel,
+  onSave,
+  onDelete,
+}: {
+  methods: DbPaymentMethod[];
+  editingForm: PaymentMethodFormState | null;
+  onChange: (form: PaymentMethodFormState) => void;
+  onCreate: () => void;
+  onEdit: (method: DbPaymentMethod) => void;
+  onCancel: () => void;
+  onSave: (form: PaymentMethodFormState) => void;
+  onDelete: (method: DbPaymentMethod) => void;
+}) {
+  return (
+    <section className="rounded-xl border border-border bg-background">
+      <div className="flex items-center justify-between gap-3 border-b border-border p-5">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Settings</p>
+          <h2 className="mt-1 text-lg font-bold">Payment Methods</h2>
+        </div>
+        <button type="button" onClick={onCreate} className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground">
+          <Plus size={13} /> Add
+        </button>
+      </div>
+
+      {editingForm && (
+        <div className="border-b border-border p-5">
+          <div className="grid items-end gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              label="Display name"
+              value={editingForm.name}
+              onChange={(value) => onChange({
+                ...editingForm,
+                name: value,
+                slug: editingForm.id ? editingForm.slug : slugify(value),
+              })}
+            />
+            <FormField label="Slug" value={editingForm.slug} onChange={(value) => onChange({ ...editingForm, slug: slugify(value) })} />
+            <FormField label="Order" value={editingForm.sort_order} type="number" onChange={(value) => onChange({ ...editingForm, sort_order: value })} />
+            <label className="flex h-11 items-center gap-3 rounded-lg border border-border px-3 text-sm">
+              <input type="checkbox" checked={editingForm.is_active} onChange={(event) => onChange({ ...editingForm, is_active: event.target.checked })} />
+              Active
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={onCancel} className="h-10 rounded-full border border-border px-4 text-[10px] font-bold uppercase tracking-[0.12em]">Cancel</button>
+            <button type="button" onClick={() => onSave(editingForm)} className="h-10 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground">Save</button>
+          </div>
+        </div>
+      )}
+
+      <div className="divide-y divide-border">
+        {methods.length === 0 ? (
+          <EmptyRow label="No payment methods yet." />
+        ) : methods.map((method) => (
+          <article key={method.id} className="grid gap-3 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold">{method.name}</h3>
+                <span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${
+                  method.is_active ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"
+                }`}>
+                  {method.is_active ? "Active" : "Disabled"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{method.slug} · Order {method.sort_order}</p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => onEdit(method)} className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em]">
+                <Edit3 size={12} /> Edit
+              </button>
+              <button type="button" onClick={() => onDelete(method)} className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-destructive/40 hover:text-destructive">
+                <Trash2 size={12} /> Delete
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
