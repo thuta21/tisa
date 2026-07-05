@@ -1,5 +1,19 @@
 export type KitVariant = "home" | "away" | "third";
 
+export type DbFont = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  preview_text: string | null;
+  font_url?: string;
+  file_path?: string | null;
+  delivery_file_path?: string | null;
+  price: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type JerseyKit = {
   image: string;
   available: boolean;
@@ -58,8 +72,8 @@ export function getJerseyKitPrice(jersey: Jersey, kit: KitVariant) {
   return jersey.kits[kit]?.price ?? jersey.price;
 }
 
-export function formatPriceMMK(price: number) {
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(price)} MMK`;
+export function formatPriceAED(price: number) {
+  return `AED ${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(price)}`;
 }
 
 export const jerseys: Jersey[] = [
@@ -72,13 +86,13 @@ export const jerseys: Jersey[] = [
     collection: "Brazil 2026",
     description:
       "A World Cup catalog entry staged with Brazil-inspired green, yellow, and blue atmosphere.",
-    price: 89000,
+    price: 80,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 89000 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 91000 },
-      third: { image: "/assets/tisa-shirt.png", available: true, price: 94000 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 80 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 85 },
+      third: { image: "/assets/tisa-shirt.png", available: true, price: 90 },
     },
     country_colors: ["#009b3a", "#facc15", "#002776"],
     featured: true,
@@ -99,12 +113,12 @@ export const jerseys: Jersey[] = [
     collection: "Germany 2026",
     description:
       "A World Cup catalog entry staged with Germany-inspired black, red, and gold atmosphere.",
-    price: 89000,
+    price: 80,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 89000 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 92000 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 80 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 85 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
     country_colors: ["#111111", "#dd0000", "#ffce00"],
@@ -126,13 +140,13 @@ export const jerseys: Jersey[] = [
     collection: "England 2026",
     description:
       "A World Cup catalog entry staged with England-inspired white, red, and navy atmosphere.",
-    price: 92000,
+    price: 85,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 92000 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 85 },
       away: { image: "/assets/tisa-shirt.png", available: false },
-      third: { image: "/assets/tisa-shirt.png", available: true, price: 96000 },
+      third: { image: "/assets/tisa-shirt.png", available: true, price: 90 },
     },
     country_colors: ["#ffffff", "#cf142b", "#1d2b53"],
     featured: true,
@@ -153,12 +167,12 @@ export const jerseys: Jersey[] = [
     collection: "Spain 2026",
     description:
       "A World Cup catalog entry staged with Spain-inspired red and yellow atmosphere.",
-    price: 79000,
+    price: 80,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 79000 },
-      away: { image: "/assets/tisa-shirt.png", available: true, price: 82000 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 80 },
+      away: { image: "/assets/tisa-shirt.png", available: true, price: 85 },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
     country_colors: ["#aa151b", "#ffc400", "#7a0f13"],
@@ -180,11 +194,11 @@ export const jerseys: Jersey[] = [
     collection: "Argentina 2026",
     description:
       "A World Cup catalog entry staged with Argentina-inspired sky blue, white, and gold atmosphere.",
-    price: 99000,
+    price: 95,
     image_front: "/assets/tisa-shirt.png",
     image_back: "/assets/tisa-shirt.png",
     kits: {
-      home: { image: "/assets/tisa-shirt.png", available: true, price: 99000 },
+      home: { image: "/assets/tisa-shirt.png", available: true, price: 95 },
       away: { image: "/assets/tisa-shirt.png", available: false },
       third: { image: "/assets/tisa-shirt.png", available: false },
     },
@@ -206,4 +220,60 @@ export function getFeaturedJerseys() {
 
 export function getJerseyById(id: string) {
   return jerseys.find((jersey) => jersey.id === id) ?? null;
+}
+
+export function getTeamFontFamily(jersey: Jersey): string {
+  const team = jersey.team.toLowerCase();
+  if (team.includes("brazil")) return "BrazilFont, sans-serif";
+  if (team.includes("germany")) return "GermanyFont, sans-serif";
+  if (team.includes("england")) return "EnglandFont, sans-serif";
+  if (team.includes("spain")) return "SpainFont, sans-serif";
+  if (team.includes("argentina")) return "ArgentinaFont, sans-serif";
+  if (team.includes("real madrid")) return "RealMadridFont, sans-serif";
+  if (team.includes("manchester united")) return "ManchesterUnitedFont, sans-serif";
+  return "sans-serif";
+}
+
+export function getJerseyFontSearchTerms(jersey: Jersey) {
+  return [
+    jersey.team,
+    jersey.category,
+    jersey.league,
+    jersey.collection,
+  ].map((value) => value.toLowerCase());
+}
+
+export function isFontRelevantToJersey(font: Pick<DbFont, "name" | "slug" | "category">, jersey: Jersey) {
+  const haystack = `${font.name} ${font.slug} ${font.category}`.toLowerCase();
+  return getJerseyFontSearchTerms(jersey).some((term) => haystack.includes(term));
+}
+
+export function getTeamPrintColor(jersey: Jersey, kit: KitVariant): string {
+  const team = jersey.team.toLowerCase();
+  if (team.includes("brazil")) {
+    return kit === "home" ? "#002776" : "#ffffff";
+  }
+  if (team.includes("germany")) {
+    return kit === "home" ? "#111111" : "#ffffff";
+  }
+  if (team.includes("england")) {
+    return kit === "home" ? "#1d2b53" : "#ffffff";
+  }
+  if (team.includes("spain")) {
+    return kit === "home" ? "#ffc400" : "#aa151b";
+  }
+  if (team.includes("argentina")) {
+    return "#111111";
+  }
+  if (team.includes("real madrid")) {
+    return kit === "home" ? "#111111" : "#ffffff";
+  }
+  if (team.includes("manchester united")) {
+    return kit === "home" ? "#ffffff" : "#111111";
+  }
+  const primaryColor = jersey.country_colors[0] || "#111111";
+  if (["#ffffff", "#ffce00", "#facc15"].includes(primaryColor.toLowerCase())) {
+    return "#111111";
+  }
+  return "#ffffff";
 }

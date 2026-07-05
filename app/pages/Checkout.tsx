@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Check, ImageUp, ScanLine, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, ScanLine, ShieldCheck } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import { useCart } from "@/lib/CartContext";
-import { formatPriceMMK, getJerseyById, getJerseyKitImage, kitImageFilters, kitOptions } from "@/lib/jerseys";
+import { formatPriceAED, getJerseyById, getJerseyKitImage, kitImageFilters, kitOptions } from "@/lib/jerseys";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type PaymentMethod = "kpay" | "wave";
 
@@ -21,38 +22,116 @@ const uaeRegions = ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "
 export default function Checkout() {
   const { items, hydrated, subtotal, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kpay");
-  const [proofPreview, setProofPreview] = useState("");
-  const [proofName, setProofName] = useState("");
-  const [fileError, setFileError] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [submittedOrder, setSubmittedOrder] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => () => {
-    if (proofPreview) URL.revokeObjectURL(proofPreview);
-  }, [proofPreview]);
-
-  const handleProofChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    setFileError("");
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setFileError("Please upload an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setFileError("Payment proof must be smaller than 5 MB.");
-      return;
-    }
-    if (proofPreview) URL.revokeObjectURL(proofPreview);
-    setProofPreview(URL.createObjectURL(file));
-    setProofName(file.name);
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSubmitError("");
+    setSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
     const reference = `TISA-${Date.now().toString().slice(-6)}`;
+    const paymentReference = transactionId.trim();
+    const deliveryFee = 0;
+    const supabase = createSupabaseBrowserClient();
+
+    const orderPayload = {
+      order_number: reference,
+      customer_name: String(formData.get("name") || "").trim(),
+      customer_phone: String(formData.get("phone") || "").trim(),
+      customer_email: String(formData.get("email") || "").trim() || null,
+      country: String(formData.get("country") || "United Arab Emirates").trim(),
+      region: String(formData.get("region") || "").trim(),
+      delivery_address: String(formData.get("address") || "").trim(),
+      subtotal,
+      delivery_fee: deliveryFee,
+      total: subtotal + deliveryFee,
+      status: "verification_pending",
+      delivery_status: "pending",
+      payment_method: "bank_pay",
+      customer_note: String(formData.get("note") || "").trim() || null,
+      admin_note: null,
+    };
+
+    if (!orderPayload.customer_name || !orderPayload.customer_phone || !orderPayload.region || !orderPayload.delivery_address || !paymentReference) {
+      setSubmitError("Please complete delivery details and payment transaction ID.");
+      setSubmitting(false);
+      return;
+    }
+
+    const orderResult = await supabase.from("orders").insert(orderPayload).select("id").single();
+    if (orderResult.error || !orderResult.data) {
+      setSubmitError(orderResult.error?.message ?? "Failed to create order.");
+      setSubmitting(false);
+      return;
+    }
+
+    const orderId = orderResult.data.id as string;
+    const orderItems = items.flatMap((item) => {
+      const isFont = item.size === "Font File";
+      const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
+      if (!isFont && !jersey) return [];
+
+      const addOns = (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0);
+      const unitTotal = item.unitPrice + addOns;
+      const kitLabel = isFont
+        ? "Digital Font File"
+        : kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit;
+
+      return [{
+        order_id: orderId,
+        product_id: null,
+        variant_id: null,
+        product_name: isFont ? `${item.customName} Custom Font` : jersey!.name,
+        kit_name: kitLabel,
+        size: item.size,
+        custom_name: item.customName ?? null,
+        custom_number: item.customNumber ?? null,
+        font_slug: isFont ? item.customNumber ?? null : item.fontSlug ?? null,
+        arm_badge: item.armBadge ?? null,
+        customization_fee: item.customizationFee ?? 0,
+        arm_badge_fee: item.armBadgeFee ?? 0,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        line_total: unitTotal * item.quantity,
+      }];
+    });
+
+    const itemsResult = await supabase.from("order_items").insert(orderItems);
+    if (itemsResult.error) {
+      setSubmitError(itemsResult.error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    const safeTransactionId = paymentReference.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80);
+    const paymentResult = await supabase.from("payment_proofs").insert({
+      order_id: orderId,
+      provider: paymentMethod,
+      transaction_id: paymentReference,
+      amount: subtotal,
+      storage_path: `manual/${reference}-${safeTransactionId || "reference"}`,
+      status: "pending",
+    });
+    if (paymentResult.error) {
+      setSubmitError(paymentResult.error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    await supabase.from("order_status_history").insert({
+      order_id: orderId,
+      from_status: null,
+      to_status: "verification_pending",
+      note: "Order submitted from checkout with payment transaction ID.",
+    });
+
     setSubmittedOrder(reference);
     clearCart();
+    setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -68,7 +147,7 @@ export default function Checkout() {
             <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Payment review pending</p>
             <h1 className="mt-2 text-3xl font-bold">Order received</h1>
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-              Your payment proof is ready for verification. This demo keeps the confirmation in this browser only until the order API is connected.
+              Your order has been saved. The admin team will verify your payment transaction ID and continue processing.
             </p>
             <div className="mx-auto mt-7 max-w-xs rounded-lg border border-border px-5 py-4">
               <span className="block text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Order reference</span>
@@ -198,7 +277,7 @@ export default function Checkout() {
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">The real merchant QR and account name will replace this demo block before launch.</p>
                     <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-3">
                       <span className="text-xs text-muted-foreground">Amount</span>
-                      <strong className="text-lg">{formatPriceMMK(subtotal)}</strong>
+                      <strong className="text-lg">{formatPriceAED(subtotal)}</strong>
                     </div>
                   </div>
                 </div>
@@ -209,20 +288,10 @@ export default function Checkout() {
                     <input required value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="Enter wallet transaction ID" />
                   </label>
                   <label className="grid gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Payment screenshot
-                    <input required type="file" accept="image/png,image/jpeg,image/webp" onChange={handleProofChange} className="sr-only" id="payment-proof" />
-                    <span className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-sm font-normal normal-case tracking-normal text-foreground hover:border-primary/50">
-                      <ImageUp size={15} />
-                      <span className="truncate">{proofName || "Choose image"}</span>
-                    </span>
+                    Order note <span className="normal-case tracking-normal">(optional)</span>
+                    <input name="note" className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary" placeholder="Any delivery or sizing note" />
                   </label>
                 </div>
-                {fileError && <p className="mt-2 text-xs text-destructive">{fileError}</p>}
-                {proofPreview && (
-                  <div className="relative mt-4 h-40 overflow-hidden rounded-lg border border-border bg-muted">
-                    <Image src={proofPreview} alt="Payment screenshot preview" fill unoptimized className="object-contain" />
-                  </div>
-                )}
               </section>
             </div>
 
@@ -230,40 +299,68 @@ export default function Checkout() {
               <h2 className="text-base font-bold">Order summary</h2>
               <div className="mt-5 max-h-72 space-y-4 overflow-y-auto pr-1">
                 {items.map((item, index) => {
-                  const jersey = getJerseyById(item.jerseyId);
-                  if (!jersey) return null;
-                  const kitLabel = kitOptions.find((kit) => kit.id === item.kit)?.label;
+                  const isFont = item.size === "Font File";
+                  const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
+                  if (!isFont && !jersey) return null;
+                  const kitLabel = isFont ? "Digital Font File" : kitOptions.find((kit) => kit.id === item.kit)?.label;
                   return (
                     <div key={item.id} className="flex gap-3">
-                      <div className="relative h-20 w-16 shrink-0 rounded-md bg-muted/50">
-                        <Image src={getJerseyKitImage(jersey, item.kit)} alt={jersey.name} fill sizes="64px" priority={index === 0} className="object-contain p-1" style={{ filter: kitImageFilters[item.kit] }} />
+                      <div className="relative h-20 w-16 shrink-0 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
+                        {isFont ? (
+                          <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                            <span className="font-extrabold text-xl font-display text-primary">Aa</span>
+                            <span className="text-[7px] uppercase tracking-wider font-mono">.TTF File</span>
+                          </div>
+                        ) : (
+                          <Image src={getJerseyKitImage(jersey!, item.kit)} alt={jersey!.name} fill sizes="64px" priority={index === 0} className="object-contain p-1" style={{ filter: kitImageFilters[item.kit] }} />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{jersey.name}</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">{kitLabel} / {item.size} / Qty {item.quantity}</p>
-                        <p className="mt-2 text-xs font-semibold">{formatPriceMMK(item.unitPrice * item.quantity)}</p>
+                        <p className="truncate text-sm font-semibold">
+                          {isFont ? `${item.customName} Custom Font` : jersey!.name}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          {isFont ? "Digital Download" : `${kitLabel} / ${item.size} / Qty ${item.quantity}`}
+                        </p>
+                        {!isFont && (item.customName || item.customNumber) && (
+                          <p className="text-[9px] text-muted-foreground">
+                            Print: {[item.customName, item.customNumber].filter(Boolean).join(" ")}
+                          </p>
+                        )}
+                        {!isFont && item.fontSlug && (
+                          <p className="text-[9px] text-muted-foreground">
+                            Font: {item.fontSlug}
+                          </p>
+                        )}
+                        {!isFont && item.armBadge && (
+                          <p className="text-[9px] text-muted-foreground">
+                            Badge: {item.armBadge.toUpperCase()}
+                          </p>
+                        )}
+                        <p className="mt-2 text-xs font-semibold">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
               <dl className="mt-5 space-y-3 border-t border-border pt-5 text-sm">
-                <div className="flex justify-between text-muted-foreground"><dt>Subtotal</dt><dd className="text-foreground">{formatPriceMMK(subtotal)}</dd></div>
+                <div className="flex justify-between text-muted-foreground"><dt>Subtotal</dt><dd className="text-foreground">{formatPriceAED(subtotal)}</dd></div>
                 <div className="flex justify-between text-muted-foreground"><dt>Delivery</dt><dd>Confirmed separately</dd></div>
               </dl>
               <div className="mt-5 flex items-end justify-between border-t border-border pt-5">
                 <span className="text-sm font-semibold">Payment amount</span>
-                <span className="text-xl font-bold">{formatPriceMMK(subtotal)}</span>
+                <span className="text-xl font-bold">{formatPriceAED(subtotal)}</span>
               </div>
               <button
                 type="submit"
-                disabled={!proofPreview || !transactionId.trim()}
+                disabled={!transactionId.trim() || submitting}
                 className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                Submit Order
+                {submitting ? "Submitting..." : "Submit Order"}
                 <ShieldCheck size={15} />
               </button>
-              <p className="mt-3 text-center text-[10px] leading-4 text-muted-foreground">Payment is not automatically verified in demo mode.</p>
+              {submitError && <p className="mt-3 text-center text-xs text-destructive">{submitError}</p>}
+              <p className="mt-3 text-center text-[10px] leading-4 text-muted-foreground">Payment is reviewed manually by transaction ID.</p>
             </aside>
           </div>
         </form>

@@ -9,6 +9,10 @@ export type CartItem = {
   unitPrice: number;
   customName?: string;
   customNumber?: string;
+  fontSlug?: string;
+  armBadge?: string;
+  customizationFee?: number;
+  armBadgeFee?: number;
 };
 
 export type AddCartItem = Omit<CartItem, "id">;
@@ -20,6 +24,7 @@ export function getCartItemId(item: AddCartItem) {
     item.size,
     item.customName?.trim().toUpperCase() || "standard",
     item.customNumber?.trim() || "none",
+    item.fontSlug || "default",
+    item.armBadge || "none",
   ].join(":");
 }
-

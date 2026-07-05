@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CarouselCard from "./CarouselCard";
 import { playClickSFX } from "@/lib/sfx";
 import {
-  formatPriceMMK,
+  formatPriceAED,
   getFirstAvailableKit,
   getJerseyKitPrice,
   isJerseyKitAvailable,
@@ -228,7 +228,7 @@ export default function Carousel3D({
         <div className="justify-self-start text-left leading-none">
           <span className="text-[9px] text-muted-foreground block uppercase tracking-[0.2em] font-mono">Premium Retail</span>
           <span className="text-base font-bold text-primary font-display sm:text-xl">
-            {formatPriceMMK(selectedPrice)}
+            {formatPriceAED(selectedPrice)}
           </span>
         </div>
 

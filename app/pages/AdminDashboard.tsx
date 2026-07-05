@@ -19,6 +19,7 @@ import {
   Edit3,
   Eye,
   LayoutDashboard,
+  Mail,
   PackageCheck,
   Plus,
   Printer,
@@ -32,12 +33,16 @@ import {
   Trash2,
   Truck,
   Trophy,
+  Type,
   X,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { type DbFont } from "@/lib/jerseys";
+
+const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
 type AdminTab = "overview" | "orders" | "products" | "payments" | "print" | "settings";
-type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges";
+type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges" | "fonts";
 type KitVariant = "home" | "away" | "third";
 type ProductStatus = "draft" | "active" | "archived";
 type OrderStatus =
@@ -50,8 +55,11 @@ type OrderStatus =
   | "cancelled"
   | "payment_rejected";
 type PaymentProvider = "kpay" | "wave";
+type OrderPaymentMethod = "cod" | "bank_pay";
 type PaymentStatus = "pending" | "verified" | "rejected";
 type DeliveryStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+type OrderPaymentFilter = "all" | "paid" | "unpaid";
+type OrderDateFilter = "all" | "today" | "yesterday" | "last_7_days" | "this_month";
 type ArmBadge = "" | "ucl" | "epl";
 type AddOnPricing = { customization: number; armBadge: number };
 
@@ -65,6 +73,7 @@ type DbOrderItem = {
   size: string;
   custom_name: string | null;
   custom_number: string | null;
+  font_slug: string | null;
   arm_badge: ArmBadge | null;
   customization_fee: number;
   arm_badge_fee: number;
@@ -113,6 +122,7 @@ type DbOrder = {
   total: number;
   status: OrderStatus;
   delivery_status: DeliveryStatus;
+  payment_method: OrderPaymentMethod;
   customer_note: string | null;
   admin_note: string | null;
   created_at: string;
@@ -148,12 +158,13 @@ type OrderFormState = {
   delivery_fee: string;
   status: OrderStatus;
   delivery_status: DeliveryStatus;
+  payment_method: OrderPaymentMethod;
   customer_note: string;
   admin_note: string;
   items: OrderItemFormState[];
 };
 
-type PrintSlipSize = "a6" | "a5" | "thermal";
+type PrintSlipSize = "rp425-4x6" | "a6" | "a5" | "thermal";
 
 type DbInventory = {
   id: string;
@@ -202,6 +213,7 @@ type DbVariant = {
   price: number;
   image_front_path: string | null;
   image_back_path: string | null;
+  image_arm_path: string | null;
   available: boolean;
   inventory?: DbInventory[];
 };
@@ -242,6 +254,7 @@ type VariantFormState = {
   price: string;
   image_front_path: string;
   image_back_path: string;
+  image_arm_path: string;
   available: boolean;
   stockBySize: Record<string, string>;
 };
@@ -308,6 +321,20 @@ const deliveryStatusOptions: { id: DeliveryStatus; label: string }[] = [
   { id: "cancelled", label: "Cancelled" },
 ];
 
+const orderPaymentFilterOptions: { id: OrderPaymentFilter; label: string }[] = [
+  { id: "all", label: "All payments" },
+  { id: "paid", label: "Paid" },
+  { id: "unpaid", label: "Unpaid" },
+];
+
+const orderDateFilterOptions: { id: OrderDateFilter; label: string }[] = [
+  { id: "all", label: "All dates" },
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "last_7_days", label: "Last 7 days" },
+  { id: "this_month", label: "This month" },
+];
+
 const deliveryRegions = {
   "United Arab Emirates": [
     "Abu Dhabi",
@@ -331,12 +358,20 @@ const settingSections: {
   { id: "teams", label: "Teams", icon: Shirt },
   { id: "seasons", label: "Seasons", icon: CalendarDays },
   { id: "charges", label: "Charges", icon: Banknote },
+  { id: "fonts", label: "Fonts", icon: Type },
 ];
 
-const printSlipSizes: { id: PrintSlipSize; label: string; width: string; minHeight: string }[] = [
-  { id: "a6", label: "A6 slip", width: "105mm", minHeight: "148mm" },
-  { id: "a5", label: "A5 slip", width: "148mm", minHeight: "210mm" },
-  { id: "thermal", label: "Thermal 80mm", width: "80mm", minHeight: "160mm" },
+const printSlipSizes: { id: PrintSlipSize; label: string; width: string; minHeight: string; pageSize: string }[] = [
+  {
+    id: "rp425-4x6",
+    label: "RP425 — 4×6 inch",
+    width: "101.6mm",
+    minHeight: "152.4mm",
+    pageSize: "101.6mm 152.4mm",
+  },
+  { id: "a6", label: "A6 slip", width: "105mm", minHeight: "148mm", pageSize: "A6" },
+  { id: "a5", label: "A5 slip", width: "148mm", minHeight: "210mm", pageSize: "A5" },
+  { id: "thermal", label: "Thermal 80mm", width: "80mm", minHeight: "160mm", pageSize: "80mm 160mm" },
 ];
 
 function formatAed(amount: number) {
@@ -347,15 +382,45 @@ function formatAed(amount: number) {
   }).format(amount);
 }
 
-function formatMmk(amount: number) {
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(amount)} MMK`;
-}
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-AE", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function matchesOrderDateFilter(value: string, filter: OrderDateFilter) {
+  if (filter === "all") return true;
+
+  const orderDate = new Date(value);
+  const now = new Date();
+  const todayStart = startOfLocalDay(now);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(todayStart.getDate() + 1);
+
+  if (filter === "today") {
+    return orderDate >= todayStart && orderDate < tomorrowStart;
+  }
+
+  if (filter === "yesterday") {
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(todayStart.getDate() - 1);
+    return orderDate >= yesterdayStart && orderDate < todayStart;
+  }
+
+  if (filter === "last_7_days") {
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(todayStart.getDate() - 6);
+    return orderDate >= weekStart && orderDate < tomorrowStart;
+  }
+
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  return orderDate >= monthStart && orderDate < tomorrowStart;
 }
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -399,7 +464,7 @@ function getWhatsAppMessage(order: DbOrder) {
       if (item.arm_badge) {
         details += ` (${item.arm_badge.toUpperCase()} Badge)`;
       }
-      return `- ${item.product_name} (${details}) x ${item.quantity} [${formatMmk(item.line_total)}]`;
+      return `- ${item.product_name} (${details}) x ${item.quantity} [${formatAed(item.line_total)}]`;
     })
     .join("\n");
 
@@ -417,9 +482,9 @@ Delivery Status: ${deliveryStatus}
 --- မှာယူခဲ့သော ပစ္စည်းအသေးစိတ် ---
 ${itemsText}
 
-ကုန်ပစ္စည်းတန်ဖိုး: ${formatMmk(order.subtotal)}
-ပို့ဆောင်ခ: ${formatMmk(order.delivery_fee)}
-စုစုပေါင်းကျသင့်ငွေ: ${formatMmk(order.total)}
+ကုန်ပစ္စည်းတန်ဖိုး: ${formatAed(order.subtotal)}
+ပို့ဆောင်ခ: ${formatAed(order.delivery_fee)}
+စုစုပေါင်းကျသင့်ငွေ: ${formatAed(order.total)}
 
 --- ပို့ဆောင်မည့်လိပ်စာ ---
 အမည် - ${order.customer_name}
@@ -512,6 +577,10 @@ function getPaymentLabel(method?: PaymentProvider | "cod") {
   return labels[method ?? "cod"];
 }
 
+function getOrderPaymentMethodLabel(method?: OrderPaymentMethod) {
+  return method === "bank_pay" ? "Bank Pay" : "COD";
+}
+
 function getPublicProductImage(path?: string | null) {
   if (!path) return "/assets/tisa-shirt.png";
   if (path.startsWith("/") || path.startsWith("http")) return path;
@@ -563,6 +632,7 @@ function createEmptyOrderForm(): OrderFormState {
     delivery_fee: "0",
     status: "awaiting_payment",
     delivery_status: "pending",
+    payment_method: "cod",
     customer_note: "",
     admin_note: "",
     items: [createEmptyOrderItem()],
@@ -582,6 +652,7 @@ function orderToForm(order: DbOrder): OrderFormState {
     delivery_fee: String(order.delivery_fee),
     status: order.status,
     delivery_status: order.delivery_status ?? "pending",
+    payment_method: order.payment_method ?? "cod",
     customer_note: order.customer_note ?? "",
     admin_note: order.admin_note ?? "",
     items: (order.order_items ?? []).map((item) => ({
@@ -630,9 +701,9 @@ function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
     status: "active",
     size_ids: sizes.length ? sortByOrder(sizes).map((size) => size.id) : [],
     variants: {
-      home: { kit: "home", name: "Home Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: true, stockBySize: {} },
-      away: { kit: "away", name: "Away Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stockBySize: {} },
-      third: { kit: "third", name: "Third Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", available: false, stockBySize: {} },
+      home: { kit: "home", name: "Home Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", image_arm_path: "", available: true, stockBySize: {} },
+      away: { kit: "away", name: "Away Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", image_arm_path: "", available: false, stockBySize: {} },
+      third: { kit: "third", name: "Third Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", image_arm_path: "", available: false, stockBySize: {} },
     },
   };
 }
@@ -654,6 +725,7 @@ function productToForm(product: DbProduct, availableSizes: DbJerseySize[] = []):
       price: String(variant.price),
       image_front_path: variant.image_front_path ?? "",
       image_back_path: variant.image_back_path ?? "",
+      image_arm_path: variant.image_arm_path ?? "",
       available: variant.available,
       stockBySize: Object.fromEntries(
         (variant.inventory ?? []).map((row) => [row.size, String(row.quantity)]),
@@ -687,6 +759,9 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [query, setQuery] = useState("");
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<OrderPaymentFilter>("all");
+  const [orderDateFilter, setOrderDateFilter] = useState<OrderDateFilter>("all");
+  const [orderDeliveryFilter, setOrderDeliveryFilter] = useState<DeliveryStatus | "all">("all");
   const [authStatus, setAuthStatus] = useState<"checking" | "authorized" | "denied">("checking");
   const [authMessage, setAuthMessage] = useState("");
   const [loadingData, setLoadingData] = useState(true);
@@ -706,6 +781,11 @@ export default function AdminDashboard() {
   const [editingOrder, setEditingOrder] = useState<OrderFormState | null>(null);
   const [viewingOrder, setViewingOrder] = useState<DbOrder | null>(null);
   const [printingOrder, setPrintingOrder] = useState<DbOrder | null>(null);
+
+  // Fonts state variables
+  const [fontsList, setFontsList] = useState<DbFont[]>([]);
+  const [editingFont, setEditingFont] = useState<Partial<DbFont> | null>(null);
+  const [savingFont, setSavingFont] = useState(false);
 
   const loadAdminData = useCallback(async () => {
     setLoadingData(true);
@@ -732,6 +812,12 @@ export default function AdminDashboard() {
       supabase.from("commerce_settings").select("customization_price, arm_badge_price").eq("id", true).maybeSingle(),
     ]);
 
+    const fontsResult = await supabase
+      .from("fonts")
+      .select(fontSelect)
+      .order("category", { ascending: true })
+      .order("name", { ascending: true });
+
     const firstError =
       ordersResult.error ??
       productsResult.error ??
@@ -751,6 +837,7 @@ export default function AdminDashboard() {
       setTeams((teamsResult.data ?? []) as DbTeam[]);
       setSeasons((seasonsResult.data ?? []) as DbSeason[]);
       setSizes((sizesResult.data ?? []) as DbJerseySize[]);
+      setFontsList((fontsResult.data ?? []) as DbFont[]);
       if (pricingResult.data) {
         setAddOnPricing({
           customization: pricingResult.data.customization_price,
@@ -908,6 +995,7 @@ export default function AdminDashboard() {
       total,
       status: form.status,
       delivery_status: form.delivery_status,
+      payment_method: form.payment_method,
       customer_note: form.customer_note.trim() || null,
       admin_note: form.admin_note.trim() || null,
     };
@@ -962,6 +1050,7 @@ export default function AdminDashboard() {
         size: item.size.trim(),
         custom_name: item.custom_name.trim() || null,
         custom_number: item.custom_number.trim() || null,
+        font_slug: null,
         arm_badge: item.arm_badge || null,
         customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
         arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
@@ -1020,6 +1109,36 @@ export default function AdminDashboard() {
     window.open(whatsappUrl, "_blank");
   };
 
+  const handleEmailFontDelivery = (order: DbOrder) => {
+    if (!order.customer_email) {
+      setActionMessage("Customer email is missing for this order.");
+      return;
+    }
+
+    const fontItems = (order.order_items ?? []).filter((item) => item.size === "Font File");
+    if (!fontItems.length) {
+      setActionMessage("This order does not contain digital font files.");
+      return;
+    }
+
+    const subject = encodeURIComponent(`TISA font delivery for ${order.order_number}`);
+    const body = encodeURIComponent([
+      `Hi ${order.customer_name},`,
+      "",
+      `Your payment for ${order.order_number} has been approved.`,
+      "",
+      "Font files:",
+      ...fontItems.map((item) => `- ${item.product_name}`),
+      "",
+      "Download link: [paste signed private download link here]",
+      "",
+      "Thank you,",
+      "TISA",
+    ].join("\n"));
+
+    window.location.href = `mailto:${order.customer_email}?subject=${subject}&body=${body}`;
+  };
+
   const handleQuickStockUpdate = async (inventoryId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
     const supabase = createSupabaseBrowserClient();
@@ -1037,8 +1156,8 @@ export default function AdminDashboard() {
     await loadAdminData();
   };
 
-  const handleExportOrdersToCsv = () => {
-    if (orders.length === 0) {
+  const handleExportOrdersToCsv = (exportOrders: DbOrder[] = orders) => {
+    if (exportOrders.length === 0) {
       setActionMessage("No orders available to export.");
       return;
     }
@@ -1071,7 +1190,7 @@ export default function AdminDashboard() {
 
     const csvRows = [
       headers.join(","),
-      ...orders.map((order) => {
+      ...exportOrders.map((order) => {
         const itemsString = (order.order_items ?? [])
           .map((item) => `${item.product_name} (${item.kit_name} / ${item.size}) x${item.quantity}`)
           .join("; ");
@@ -1176,6 +1295,64 @@ export default function AdminDashboard() {
     setActionMessage(error ? error.message : "Additional prices saved.");
   };
 
+  const handleSaveFont = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFont) return;
+
+    const fontName = editingFont.name?.trim();
+    const fontSlug = editingFont.slug?.trim();
+    if (!fontName) {
+      window.alert("Font name is required");
+      return;
+    }
+    if (!fontSlug) {
+      window.alert("Font slug is required");
+      return;
+    }
+
+    setSavingFont(true);
+    const supabase = createSupabaseBrowserClient();
+    const fontCategory = editingFont.category?.trim() || "Uncategorized";
+    const previewText = editingFont.preview_text?.trim() || "CHAMPIONS 10";
+    const filePath = editingFont.file_path?.trim() || `fonts/${fontSlug}.ttf`;
+    const deliveryFilePath = editingFont.delivery_file_path?.trim() || filePath;
+
+    const { error: saveError } = await supabase
+      .from("fonts")
+      .upsert({
+        id: !editingFont.id ? undefined : editingFont.id,
+        name: fontName,
+        slug: fontSlug,
+        category: fontCategory,
+        preview_text: previewText,
+        file_path: filePath,
+        delivery_file_path: deliveryFilePath,
+        font_url: "",
+        price: Number(editingFont.price) || 0,
+      });
+
+    if (saveError) {
+      window.alert(`Save error: ${saveError.message}`);
+    } else {
+      setEditingFont(null);
+      await loadAdminData();
+      setActionMessage("Font saved successfully.");
+    }
+    setSavingFont(false);
+  };
+
+  const handleDeleteFont = async (font: DbFont) => {
+    if (!window.confirm(`Are you sure you want to delete the font "${font.name}"?`)) return;
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("fonts").delete().eq("id", font.id);
+    if (error) {
+      window.alert(`Delete error: ${error.message}`);
+    } else {
+      await loadAdminData();
+      setActionMessage("Font deleted.");
+    }
+  };
+
   const deleteSetting = async (section: SettingSection, item: DbLeague | DbSeason | DbJerseySize | DbTeam) => {
     const label = "label" in item ? item.label : item.name;
     if (!window.confirm(`Delete ${label}? Existing products will keep their text values, but the lookup link may be cleared.`)) return;
@@ -1250,6 +1427,7 @@ export default function AdminDashboard() {
         price: toNumber(variant.price, basePrice),
         image_front_path: variant.image_front_path.trim() || null,
         image_back_path: variant.image_back_path.trim() || null,
+        image_arm_path: variant.image_arm_path.trim() || null,
         available: variant.available,
       };
 
@@ -1378,13 +1556,31 @@ export default function AdminDashboard() {
     return list;
   }, [products]);
 
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return true;
-    return [order.order_number, order.customer_name, order.customer_phone, order.country, order.region].some((value) =>
-      value.toLowerCase().includes(term),
-    );
-  });
+
+    return orders.filter((order) => {
+      const matchesSearch = !term || [
+        order.order_number,
+        order.customer_name,
+        order.customer_phone,
+        order.customer_email ?? "",
+        order.country,
+        order.region,
+      ].some((value) => value.toLowerCase().includes(term));
+
+      const matchesPayment = orderPaymentFilter === "all" || getStatusLabel(order.status).toLowerCase() === orderPaymentFilter;
+      const matchesDate = matchesOrderDateFilter(order.created_at, orderDateFilter);
+      const matchesDelivery = orderDeliveryFilter === "all" || (order.delivery_status ?? "pending") === orderDeliveryFilter;
+
+      return matchesSearch && matchesPayment && matchesDate && matchesDelivery;
+    });
+  }, [orders, query, orderPaymentFilter, orderDateFilter, orderDeliveryFilter]);
+
+  const hasOrderFilters = Boolean(query.trim())
+    || orderPaymentFilter !== "all"
+    || orderDateFilter !== "all"
+    || orderDeliveryFilter !== "all";
 
   const pendingPayments = paymentProofs.filter((proof) => proof.status === "pending").length;
   const today = new Date().toDateString();
@@ -1541,9 +1737,6 @@ export default function AdminDashboard() {
               Storefront <ArrowUpRight size={13} />
             </Link>
             <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Admin Panel</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Dubai stock, orders, products, and wallet proof review from Supabase.
-            </p>
           </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
             <button
@@ -1606,7 +1799,7 @@ export default function AdminDashboard() {
                           return (
                             <div key={index} className="group relative flex flex-1 flex-col items-center">
                               <span className="pointer-events-none absolute bottom-full mb-2 z-10 scale-95 opacity-0 rounded bg-neutral-900 px-2 py-1 text-[10px] text-white transition-all group-hover:scale-100 group-hover:opacity-100 whitespace-nowrap">
-                                {formatMmk(m.revenue)}
+                                {formatAed(m.revenue)}
                               </span>
                               <div
                                 style={{ height: `${Math.max(heightPercent, 2)}%` }}
@@ -1681,7 +1874,7 @@ export default function AdminDashboard() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={handleExportOrdersToCsv}
+                      onClick={() => handleExportOrdersToCsv(filteredOrders)}
                       className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground hover:border-primary/40"
                     >
                       Export CSV
@@ -1696,6 +1889,57 @@ export default function AdminDashboard() {
                     >
                       <Plus size={13} /> Add Order
                     </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="grid gap-2 sm:grid-cols-3 lg:flex lg:flex-wrap">
+                    <select
+                      value={orderPaymentFilter}
+                      onChange={(event) => setOrderPaymentFilter(event.target.value as OrderPaymentFilter)}
+                      className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
+                    >
+                      {orderPaymentFilterOptions.map((option) => (
+                        <option key={option.id} value={option.id}>{option.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={orderDateFilter}
+                      onChange={(event) => setOrderDateFilter(event.target.value as OrderDateFilter)}
+                      className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
+                    >
+                      {orderDateFilterOptions.map((option) => (
+                        <option key={option.id} value={option.id}>{option.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={orderDeliveryFilter}
+                      onChange={(event) => setOrderDeliveryFilter(event.target.value as DeliveryStatus | "all")}
+                      className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
+                    >
+                      <option value="all">All delivery</option>
+                      {deliveryStatusOptions.map((status) => (
+                        <option key={status.id} value={status.id}>{status.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 lg:justify-end">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Showing {filteredOrders.length} of {orders.length}
+                    </p>
+                    {hasOrderFilters && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuery("");
+                          setOrderPaymentFilter("all");
+                          setOrderDateFilter("all");
+                          setOrderDeliveryFilter("all");
+                        }}
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-border px-3 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-primary/50"
+                      >
+                        <X size={12} /> Reset
+                      </button>
+                    )}
                   </div>
                 </div>
                 <OrdersPanel
@@ -1744,7 +1988,9 @@ export default function AdminDashboard() {
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {settingSection === "charges"
                       ? "Manage additional prices for product customizations, such as print name & number, and arm badges."
-                      : "Use the Settings submenu in the sidebar to switch between Leagues, Sizes, Teams, Seasons, and Charges."}
+                      : settingSection === "fonts"
+                        ? "Manage custom team jersey fonts. Upload .ttf files, set pricing, and customize slugs to match jerseys."
+                        : "Use the Settings submenu in the sidebar to switch between Leagues, Sizes, Teams, Seasons, and Charges."}
                   </p>
                 </section>
                 {settingSection === "charges" && (
@@ -1772,7 +2018,166 @@ export default function AdminDashboard() {
                     </div>
                   </section>
                 )}
-                {settingSection !== "charges" && (
+                {settingSection === "fonts" && (
+                  <section className="rounded-xl border border-border bg-background p-5">
+                    {editingFont ? (
+                      <form onSubmit={handleSaveFont} className="space-y-4">
+                        <h3 className="text-sm font-bold uppercase tracking-wider">{editingFont.id ? "Edit Font" : "Add Font"}</h3>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Font Name
+                            <input
+                              required
+                              type="text"
+                              value={editingFont.name || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditingFont((current) => ({
+                                  ...current,
+                                  name: val,
+                                  slug: current?.id ? (current.slug || "") : slugify(val) + "-font",
+                                }));
+                              }}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                              placeholder="e.g. Real Madrid 24/25"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Font Slug
+                            <input
+                              required
+                              type="text"
+                              value={editingFont.slug || ""}
+                              onChange={(e) => setEditingFont((current) => ({ ...current, slug: e.target.value }))}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                              placeholder="e.g. real-madrid-font"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Price (AED)
+                            <input
+                              required
+                              type="number"
+                              min="0"
+                              value={String(editingFont.price ?? 0)}
+                              onChange={(e) => setEditingFont((current) => ({ ...current, price: Number(e.target.value) || 0 }))}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Category
+                            <input
+                              type="text"
+                              value={editingFont.category || ""}
+                              onChange={(e) => setEditingFont((current) => ({ ...current, category: e.target.value }))}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                              placeholder="e.g. World Cup"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                            Preview Text
+                            <input
+                              type="text"
+                              value={editingFont.preview_text || ""}
+                              onChange={(e) => setEditingFont((current) => ({ ...current, preview_text: e.target.value.toUpperCase().slice(0, 24) }))}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                              placeholder="CHAMPIONS 10"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:col-span-2">
+                            Private File Path
+                            <input
+                              type="text"
+                              value={editingFont.file_path || ""}
+                              onChange={(e) => setEditingFont((current) => ({ ...current, file_path: e.target.value }))}
+                              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground focus:border-primary outline-none"
+                              placeholder="fonts/real-madrid-font.ttf"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingFont(null);
+                            }}
+                            className="h-10 rounded-full border border-border bg-background px-5 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground hover:bg-muted"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={savingFont}
+                            className="h-10 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground disabled:opacity-50"
+                          >
+                            {savingFont ? "Saving..." : "Save Font"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-sm font-bold uppercase tracking-wider">Font List</h3>
+                          <button
+                            type="button"
+                            onClick={() => setEditingFont({ name: "", slug: "", category: "World Cup", preview_text: "CHAMPIONS 10", price: 0, font_url: "", file_path: "" })}
+                            className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground hover:bg-primary/90"
+                          >
+                            <Plus size={12} /> Add Font
+                          </button>
+                        </div>
+                        {fontsList.length === 0 ? (
+                          <div className="text-center py-10 border border-dashed border-border rounded-xl">
+                            <p className="text-xs text-muted-foreground font-mono">No fonts configured. Click Add Font to add one.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b border-border text-muted-foreground uppercase tracking-wider text-[9px]">
+                                  <th className="pb-3 font-semibold">Name</th>
+                                  <th className="pb-3 font-semibold">Category</th>
+                                  <th className="pb-3 font-semibold">Slug</th>
+                                  <th className="pb-3 font-semibold">Price</th>
+                                  <th className="pb-3 font-semibold text-right">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                {fontsList.map((font) => (
+                                  <tr key={font.id} className="hover:bg-muted/30">
+                                    <td className="py-3 font-medium text-foreground">{font.name}</td>
+                                    <td className="py-3 text-muted-foreground">{font.category}</td>
+                                    <td className="py-3 font-mono text-muted-foreground">{font.slug}</td>
+                                    <td className="py-3 font-semibold text-foreground">{formatAed(font.price)}</td>
+                                    <td className="py-3 text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingFont(font)}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+                                        >
+                                          <Edit3 size={12} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFont(font)}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                )}
+                {settingSection !== "charges" && settingSection !== "fonts" && (
                   <SettingsCrudPanel
                     section={settingSection}
                     leagues={leagues}
@@ -1829,6 +2234,7 @@ export default function AdminDashboard() {
             setPrintingOrder(order);
           }}
           onNotify={handleWhatsAppNotify}
+          onEmailFontDelivery={handleEmailFontDelivery}
         />
       )}
       {printingOrder && (
@@ -1983,7 +2389,6 @@ function OrdersPanel({
         {panelOrders.length === 0 ? (
           <EmptyRow label="No orders in Supabase yet." />
         ) : panelOrders.map((order) => {
-          const provider = order.payment_proofs?.[0]?.provider ?? "cod";
           const itemCount = (order.order_items ?? []).reduce((sum, item) => sum + item.quantity, 0);
           return (
             <article key={order.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto_auto] lg:items-center">
@@ -2004,11 +2409,11 @@ function OrdersPanel({
               </div>
               <div className="flex items-center gap-3 lg:justify-end">
                 <span className="rounded-full bg-muted px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]">
-                  {getPaymentLabel(provider)}
+                  {getOrderPaymentMethodLabel(order.payment_method)}
                 </span>
                 <strong className="text-lg">{formatAed(order.total)}</strong>
               </div>
-              <select
+              {/* <select
                 value={getPaymentStatusValue(order.status)}
                 onChange={(event) => onStatusChange(order, event.target.value as OrderStatus)}
                 className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
@@ -2025,7 +2430,7 @@ function OrdersPanel({
                 {deliveryStatusOptions.map((status) => (
                   <option key={status.id} value={status.id}>{status.label}</option>
                 ))}
-              </select>
+              </select> */}
               {!compact && (
                 <div className="flex flex-wrap gap-2 lg:col-span-3 lg:justify-end">
                   {onNotify && (
@@ -2152,13 +2557,13 @@ function PaymentsPanel({
       <div className="flex items-center justify-between gap-3 border-b border-border p-5">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Payments</p>
-          <h2 className="mt-1 text-lg font-bold">Proof review</h2>
+          <h2 className="mt-1 text-lg font-bold">Reference review</h2>
         </div>
         <BadgeCheck size={18} className="text-muted-foreground" />
       </div>
       <div className="divide-y divide-border">
         {proofs.length === 0 ? (
-          <EmptyRow label="No payment proofs in Supabase yet." />
+          <EmptyRow label="No payment references in Supabase yet." />
         ) : proofs.map((proof) => (
           <article key={proof.id} className="p-5">
             <div className="flex items-start justify-between gap-4">
@@ -2177,11 +2582,10 @@ function PaymentsPanel({
               </div>
               <div>
                 <dt className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Paid amount</dt>
-                <dd className="mt-1 font-bold">{formatMmk(proof.amount)}</dd>
+                <dd className="mt-1 font-bold">{formatAed(proof.amount)}</dd>
               </div>
             </dl>
-            <p className="mt-3 text-xs text-muted-foreground">{proof.transaction_id} · {formatDateTime(proof.created_at)}</p>
-            <p className="mt-1 break-all text-xs text-muted-foreground">Storage: {proof.storage_path}</p>
+            <p className="mt-3 text-xs text-muted-foreground">Transaction: {proof.transaction_id} · {formatDateTime(proof.created_at)}</p>
             {proof.status === "pending" && (
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
@@ -2434,6 +2838,13 @@ function OrderEditor({
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <FormField label="Order no." value={form.order_number} onChange={(value) => setField("order_number", value)} />
             <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Payment method
+              <select value={form.payment_method} onChange={(event) => setField("payment_method", event.target.value as OrderPaymentMethod)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
+                <option value="cod">Cash on Delivery (COD)</option>
+                <option value="bank_pay">Bank Pay</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
               Payment status
               <select value={getPaymentStatusValue(form.status)} onChange={(event) => setField("status", event.target.value as OrderStatus)} className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary">
                 {orderStatusOptions.map((status) => <option key={status.id} value={status.id}>{status.label}</option>)}
@@ -2580,13 +2991,18 @@ function OrderDetailModal({
   onEdit,
   onPrint,
   onNotify,
+  onEmailFontDelivery,
 }: {
   order: DbOrder;
   onClose: () => void;
   onEdit: (order: DbOrder) => void;
   onPrint: (order: DbOrder) => void;
   onNotify?: (order: DbOrder) => void;
+  onEmailFontDelivery?: (order: DbOrder) => void;
 }) {
+  const hasFontItems = (order.order_items ?? []).some((item) => item.size === "Font File");
+  const canDeliverFonts = hasFontItems && order.status === "paid";
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
       <div className="ml-auto flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-background shadow-xl">
@@ -2609,7 +3025,7 @@ function OrderDetailModal({
             <section className="rounded-xl border border-border p-4">
               <h3 className="font-bold">Payment</h3>
               <p className="mt-3 text-sm text-muted-foreground">Status: {getStatusLabel(order.status)}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Method: {getPaymentLabel(order.payment_proofs?.[0]?.provider ?? "cod")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Method: {getOrderPaymentMethodLabel(order.payment_method)}</p>
               <p className="mt-3 text-xl font-bold">{formatAed(order.total)}</p>
             </section>
           </div>
@@ -2622,6 +3038,7 @@ function OrderDetailModal({
                     <p className="font-semibold">{item.product_name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{item.kit_name} / {item.size} / Qty {item.quantity}</p>
                     {(item.custom_name || item.custom_number) && <p className="mt-1 text-xs text-muted-foreground">Print: {item.custom_name || "-"} #{item.custom_number || "-"} · +{formatAed(item.customization_fee)}</p>}
+                    {item.font_slug && <p className="mt-1 text-xs text-muted-foreground">Font: {item.font_slug}</p>}
                     {item.arm_badge && <p className="mt-1 text-xs text-muted-foreground">{item.arm_badge.toUpperCase()} Badge · +{formatAed(item.arm_badge_fee)}</p>}
                   </div>
                   <strong>{formatAed(item.line_total)}</strong>
@@ -2679,6 +3096,11 @@ function OrderDetailModal({
               <WhatsAppIcon className="size-3.5 text-emerald-600" /> Notify WhatsApp
             </button>
           )}
+          {onEmailFontDelivery && canDeliverFonts && (
+            <button type="button" onClick={() => onEmailFontDelivery(order)} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em] hover:border-primary/50 hover:text-primary">
+              <Mail size={13} /> Notify by email
+            </button>
+          )}
           <button type="button" onClick={() => onEdit(order)} className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]"><Edit3 size={13} /> Edit</button>
           <button type="button" onClick={() => onPrint(order)} className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground"><Printer size={13} /> Preview slip</button>
         </div>
@@ -2688,17 +3110,51 @@ function OrderDetailModal({
 }
 
 function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => void }) {
-  const [size, setSize] = useState<PrintSlipSize>("a6");
+  const [size, setSize] = useState<PrintSlipSize>("rp425-4x6");
   const selectedSize = printSlipSizes.find((item) => item.id === size) ?? printSlipSizes[0];
 
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/55 p-4 backdrop-blur-sm">
       <style>{`
         @media print {
+          html, body {
+            width: ${selectedSize.width} !important;
+            height: ${selectedSize.minHeight} !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
           body * { visibility: hidden !important; }
+          body *:not(:has(#print-slip-document)):not(#print-slip-document):not(#print-slip-document *) {
+            display: none !important;
+          }
+          body *:has(#print-slip-document) {
+            position: static !important;
+            display: block !important;
+            width: auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+            box-shadow: none !important;
+          }
           #print-slip-document, #print-slip-document * { visibility: visible !important; }
-          #print-slip-document { position: absolute !important; left: 0 !important; top: 0 !important; box-shadow: none !important; }
-          @page { margin: 8mm; }
+          #print-slip-document {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: ${selectedSize.width} !important;
+            height: ${selectedSize.minHeight} !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
+            break-after: avoid-page !important;
+            break-inside: avoid-page !important;
+          }
+          @page { size: ${selectedSize.pageSize}; margin: 0; }
         }
       `}</style>
       <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[320px_1fr]">
@@ -2712,7 +3168,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
             </select>
           </label>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Preview ကိုကြည့်ပြီးမှ print နှိပ်ပါ။ Printer dialog မှာ paper size/custom size ကိုဒီ preview size နဲ့ညှိနိုင်ပါတယ်။
+            RP425 driver မှာ 4×6 inch (101.6 × 152.4 mm), Portrait၊ Scale 100% နဲ့ Margins None ကိုရွေးပါ။
           </p>
           <div className="mt-5 grid gap-2">
             <button type="button" onClick={() => window.print()} className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground">Print Slip</button>
@@ -2723,22 +3179,28 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
         <section className="overflow-auto rounded-xl bg-neutral-200 p-5">
           <article
             id="print-slip-document"
-            className="mx-auto bg-white p-5 text-black shadow-xl"
+            className="mx-auto box-border bg-white p-[5mm] text-black shadow-xl"
             style={{ width: selectedSize.width, minHeight: selectedSize.minHeight }}
           >
             <div className="flex items-center gap-3 border-b border-neutral-300 pb-4">
               <Image src="/assets/tisa-logo.png" alt="TISA logo" width={42} height={42} className="rounded-md" />
               <div>
-                <h1 className="text-xl font-black tracking-[0.18em]">TISA</h1>
+                <h1 className="text-xl font-black tracking-[0.08em]">TISA Sportwears</h1>
                 <p className="text-[9px] uppercase tracking-[0.14em] text-neutral-500">Order slip</p>
               </div>
             </div>
             <div className="grid gap-3 border-b border-neutral-300 py-4 text-xs">
-              <div className="flex justify-between gap-3"><span className="text-neutral-500">Order</span><strong>{order.order_number}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-neutral-500">Order No</span><strong>{order.order_number}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Date</span><strong>{formatDateTime(order.created_at)}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Customer</span><strong className="text-right">{order.customer_name}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-neutral-500">Phone</span><strong>{order.customer_phone}</strong></div>
-              <p className="leading-5 text-neutral-700">{order.delivery_address}<br />{order.region}, {order.country}</p>
+              <div className="flex justify-between gap-3"><span className="text-neutral-500">Payment</span><strong>{getOrderPaymentMethodLabel(order.payment_method)}</strong></div>
+              <div className="grid gap-1">
+                <span className="text-neutral-500">Address</span>
+                <strong className="leading-5">
+                  {order.delivery_address}<br />{order.region}, {order.country}
+                </strong>
+              </div>
             </div>
             <div className="border-b border-neutral-300 py-4">
               <h2 className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500">Items</h2>
@@ -2746,8 +3208,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                 {(order.order_items ?? []).map((item) => (
                   <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 text-xs">
                     <div>
-                      <p className="font-semibold">{item.product_name}</p>
-                      <p className="text-[10px] text-neutral-500">{item.kit_name} / {item.size} / Qty {item.quantity}</p>
+                      <p className="font-semibold">{item.product_name} × {item.quantity}</p>
                     </div>
                     <strong>{formatAed(item.line_total)}</strong>
                   </div>
@@ -2755,9 +3216,13 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
               </div>
             </div>
             <div className="py-4">
-              <div className="flex justify-between text-xs"><span>Subtotal</span><strong>{formatMmk(order.subtotal)}</strong></div>
-              <div className="mt-1 flex justify-between text-xs"><span>Delivery</span><strong>{formatMmk(order.delivery_fee)}</strong></div>
-              <div className="mt-2 flex justify-between border-t border-neutral-300 pt-2 text-base font-bold"><span>Total</span><strong>{formatMmk(order.total)}</strong></div>
+              <div className="flex justify-between text-xs"><span>Subtotal</span><strong>{formatAed(order.subtotal)}</strong></div>
+              <div className="mt-1 flex justify-between text-xs"><span>Delivery</span><strong>{formatAed(order.delivery_fee)}</strong></div>
+              <div className="mt-2 flex justify-between border-t border-neutral-300 pt-2 text-base font-bold"><span>Total</span><strong>{formatAed(order.total)}</strong></div>
+            </div>
+            <div className="border-t border-neutral-300 pt-3 text-center">
+              <p className="text-[10px] font-semibold">Thank you for shopping with TISA.</p>
+              <p className="mt-1 text-[9px] text-neutral-500">Please keep this voucher for your order reference.</p>
             </div>
           </article>
         </section>
@@ -2911,6 +3376,7 @@ function ProductEditor({
   sizes: DbJerseySize[];
 }) {
   const [uploadingField, setUploadingField] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
   const selectedLeagueTeams = form.league_id ? teams.filter((team) => team.league_id === form.league_id) : teams;
   const selectedSizes = sortByOrder(sizes).filter((size) => form.size_ids.includes(size.id));
 
@@ -2945,7 +3411,7 @@ function ProductEditor({
     });
   };
 
-  const uploadVariantImage = async (kit: KitVariant, side: "front" | "back", file: File) => {
+  const uploadVariantImage = async (kit: KitVariant, side: "front" | "back" | "arm", file: File) => {
     if (!allowedProductImageTypes.has(file.type)) {
       window.alert("Only JPG, PNG, and WebP product images are allowed.");
       return;
@@ -2957,6 +3423,7 @@ function ProductEditor({
     }
 
     setUploadingField(`${kit}-${side}`);
+    setUploadMessage("");
     const supabase = createSupabaseBrowserClient();
     const extensionByType: Record<string, string> = {
       "image/jpeg": "jpg",
@@ -2966,15 +3433,23 @@ function ProductEditor({
     const extension = extensionByType[file.type];
     const productSlug = form.slug.trim() || slugify(form.name) || "product";
     const safeProductSlug = slugify(productSlug) || "product";
-    const path = `${safeProductSlug}/${kit}-${side}-${crypto.randomUUID()}.${extension}`;
+    const path = `products/${safeProductSlug}/${kit}/${side}-${crypto.randomUUID()}.${extension}`;
     const { error } = await supabase.storage.from("product-images").upload(path, file, {
       cacheControl: "3600",
-      upsert: true,
+      contentType: file.type,
+      upsert: false,
     });
 
     if (!error) {
-      setVariant(kit, side === "front" ? { image_front_path: path } : { image_back_path: path });
+      const pathPatch = side === "front"
+        ? { image_front_path: path }
+        : side === "back"
+          ? { image_back_path: path }
+          : { image_arm_path: path };
+      setVariant(kit, pathPatch);
+      setUploadMessage(`${kitOptions.find((option) => option.id === kit)?.label} ${side} image uploaded. Save Product to attach it.`);
     } else {
+      setUploadMessage(`Upload failed: ${error.message}`);
       window.alert(error.message);
     }
     setUploadingField("");
@@ -2994,6 +3469,15 @@ function ProductEditor({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
+          {uploadMessage && (
+            <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${
+              uploadMessage.startsWith("Upload failed")
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}>
+              {uploadMessage}
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Name" value={form.name} onChange={(value) => {
               setField("name", value);
@@ -3109,6 +3593,29 @@ function ProductEditor({
                       label={uploadingField === `${kit.id}-back` ? "Uploading back..." : "Upload back image"}
                       onChange={(file) => uploadVariantImage(kit.id, "back", file)}
                     />
+                    <FormField label="Arm image path" value={variant.image_arm_path} onChange={(value) => setVariant(kit.id, { image_arm_path: value })} />
+                    <ImageUploadField
+                      label={uploadingField === `${kit.id}-arm` ? "Uploading arm..." : "Upload arm image"}
+                      onChange={(file) => uploadVariantImage(kit.id, "arm", file)}
+                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        ["Front", variant.image_front_path],
+                        ["Back", variant.image_back_path],
+                        ["Arm", variant.image_arm_path],
+                      ] as const).map(([label, path]) => (
+                        <div key={label}>
+                          <p className="mb-1 text-center text-[9px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
+                          <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/30">
+                            {path ? (
+                              <Image src={getPublicProductImage(path)} alt={`${kit.label} ${label}`} fill sizes="96px" className="object-contain p-1" />
+                            ) : (
+                              <span className="absolute inset-0 flex items-center justify-center text-[9px] text-muted-foreground">No image</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </section>
               );

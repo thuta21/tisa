@@ -1,23 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Minus, Plus, ShoppingBag } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import { useCart } from "@/lib/CartContext";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  formatPriceMMK,
+  formatPriceAED,
   getJerseyById,
   getJerseyKitImage,
   getJerseyKitPrice,
   isJerseyKitAvailable,
   kitImageFilters,
   kitOptions,
+  getTeamPrintColor,
+  isFontRelevantToJersey,
+  type DbFont,
   type Jersey,
   type KitVariant,
 } from "@/lib/jerseys";
+
+const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
+
+function getJerseyPreviewUrl(fontSlug: string, text: string, color: string) {
+  const params = new URLSearchParams({
+    font: fontSlug,
+    text,
+    variant: "jersey",
+    color,
+    background: "#ffffff",
+  });
+  return `/api/font-preview?${params.toString()}`;
+}
 
 export default function JerseyDetail({ id }: { id: string }) {
   const jersey: Jersey | null = getJerseyById(id);
@@ -29,7 +46,43 @@ export default function JerseyDetail({ id }: { id: string }) {
   const [quantity, setQuantity] = useState(1);
   const [customName, setCustomName] = useState("");
   const [customNumber, setCustomNumber] = useState("");
+  const [selectedBadge, setSelectedBadge] = useState("");
+  const [prices, setPrices] = useState({ customization: 2, armBadge: 5 });
   const [added, setAdded] = useState(false);
+  const [availableFonts, setAvailableFonts] = useState<DbFont[]>([]);
+  const [selectedFontSlug, setSelectedFontSlug] = useState("");
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase
+      .from("commerce_settings")
+      .select("customization_price, arm_badge_price")
+      .eq("id", true)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setPrices({
+            customization: data.customization_price,
+            armBadge: data.arm_badge_price,
+          });
+        }
+      });
+
+    supabase
+      .from("fonts")
+      .select(fontSelect)
+      .order("category", { ascending: true })
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        const dbFonts = (data ?? []) as DbFont[];
+        const relevantFonts = jersey
+          ? dbFonts.filter((font) => isFontRelevantToJersey(font, jersey))
+          : dbFonts;
+        const nextFonts = relevantFonts.length ? relevantFonts : dbFonts;
+        setAvailableFonts(nextFonts);
+        setSelectedFontSlug((current) => current || nextFonts[0]?.slug || "");
+      });
+  }, []);
 
   if (loading) {
     return (
@@ -65,6 +118,13 @@ export default function JerseyDetail({ id }: { id: string }) {
   const imageFilter = `drop-shadow(0 25px 40px rgba(0,0,0,0.34)) ${kitImageFilters[selectedKit]}`;
   const selectedPrice = getJerseyKitPrice(jersey, selectedKit);
 
+  const hasCustomization = !!(customName.trim() || customNumber.trim());
+  const customizationFee = hasCustomization ? prices.customization : 0;
+  const armBadgeFee = selectedBadge ? prices.armBadge : 0;
+  const lineItemUnitPrice = selectedPrice + customizationFee + armBadgeFee;
+  const printColor = getTeamPrintColor(jersey, selectedKit);
+  const customizationPreviewText = `${customName.trim() || "PLAYER"} ${customNumber.trim() || "10"}`;
+
   const handleAddToCart = () => {
     if (!selectedSize) return;
     addItem({
@@ -73,8 +133,12 @@ export default function JerseyDetail({ id }: { id: string }) {
       size: selectedSize,
       quantity,
       unitPrice: selectedPrice,
-      customName,
-      customNumber,
+      customName: customName.trim() || undefined,
+      customNumber: customNumber.trim() || undefined,
+      fontSlug: selectedFontSlug || undefined,
+      armBadge: selectedBadge || undefined,
+      customizationFee,
+      armBadgeFee,
     });
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1800);
@@ -113,7 +177,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                   style={{ background: `radial-gradient(circle at center, ${secondaryColor}, transparent 70%)` }}
                 />
 
-                <div className="flex h-[430px] items-center justify-center p-4 sm:h-[520px] lg:h-[calc(100vh-310px)] lg:min-h-[480px] lg:max-h-[620px]">
+                <div className="relative flex h-[430px] items-center justify-center p-4 sm:h-[520px] lg:h-[calc(100vh-310px)] lg:min-h-[480px] lg:max-h-[620px]">
                   <motion.img
                     key={`${activeImage}-${selectedKit}`}
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -124,6 +188,16 @@ export default function JerseyDetail({ id }: { id: string }) {
                     className="h-full w-full object-contain select-none"
                     style={{ filter: imageFilter }}
                   />
+                  {activeImage === "back" && (customName.trim() || customNumber.trim()) && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                      <img
+                        src={getJerseyPreviewUrl(selectedFontSlug, customizationPreviewText, printColor)}
+                        alt="Customization preview"
+                        className="w-[190px] sm:w-[230px] translate-y-[-28px] mix-blend-multiply"
+                        draggable={false}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -195,7 +269,7 @@ export default function JerseyDetail({ id }: { id: string }) {
               </p>
 
               <div className="flex items-baseline gap-3 mt-5">
-                <span className="text-3xl font-bold text-primary font-display">{formatPriceMMK(selectedPrice)}</span>
+                <span className="text-3xl font-bold text-primary font-display">{formatPriceAED(lineItemUnitPrice)}</span>
               </div>
 
               {/* Technical Specs */}
@@ -234,7 +308,7 @@ export default function JerseyDetail({ id }: { id: string }) {
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Shirt name <span className="normal-case tracking-normal">(optional)</span>
+                    Shirt name <span className="normal-case tracking-normal">(optional, +{formatPriceAED(prices.customization)})</span>
                     <input
                       value={customName}
                       onChange={(event) => setCustomName(event.target.value.slice(0, 12).toUpperCase())}
@@ -243,7 +317,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                     />
                   </label>
                   <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Number <span className="normal-case tracking-normal">(optional)</span>
+                    Number <span className="normal-case tracking-normal">(optional, +{formatPriceAED(prices.customization)})</span>
                     <input
                       value={customNumber}
                       onChange={(event) => setCustomNumber(event.target.value.replace(/\D/g, "").slice(0, 2))}
@@ -251,6 +325,42 @@ export default function JerseyDetail({ id }: { id: string }) {
                       placeholder="10"
                       className="h-10 rounded-lg border border-border bg-background px-3 text-sm tracking-normal text-foreground outline-none focus:border-primary"
                     />
+                  </label>
+                </div>
+
+                <div className="mt-4">
+                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Font style <span className="normal-case tracking-normal">(secure preview)</span>
+                    <select
+                      value={selectedFontSlug}
+                      onChange={(event) => setSelectedFontSlug(event.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    >
+                      {availableFonts.length === 0 ? (
+                        <option value="">Default print font</option>
+                      ) : (
+                        availableFonts.map((font) => (
+                          <option key={font.id} value={font.slug}>
+                            {font.name} ({font.category})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-4">
+                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                    Arm badge <span className="normal-case tracking-normal">(optional)</span>
+                    <select
+                      value={selectedBadge}
+                      onChange={(event) => setSelectedBadge(event.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    >
+                      <option value="">No badge</option>
+                      <option value="ucl">UCL Badge (+{formatPriceAED(prices.armBadge)})</option>
+                      <option value="epl">EPL Badge (+{formatPriceAED(prices.armBadge)})</option>
+                    </select>
                   </label>
                 </div>
 
@@ -287,7 +397,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                   className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   {added ? <Check size={15} /> : <ShoppingBag size={15} />}
-                  {added ? "Added to Bag" : `Add to Bag - ${formatPriceMMK(selectedPrice * quantity)}`}
+                  {added ? "Added to Bag" : `Add to Bag - ${formatPriceAED(lineItemUnitPrice * quantity)}`}
                 </button>
                 <Link
                   href="/cart"

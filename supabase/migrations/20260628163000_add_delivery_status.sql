@@ -1,13 +1,19 @@
-create type public.delivery_status as enum (
-  'pending',
-  'processing',
-  'shipped',
-  'delivered',
-  'cancelled'
-);
+do $$
+begin
+  create type public.delivery_status as enum (
+    'pending',
+    'processing',
+    'shipped',
+    'delivered',
+    'cancelled'
+  );
+exception
+  when duplicate_object then null;
+end
+$$;
 
 alter table public.orders
-add column delivery_status public.delivery_status not null default 'pending';
+add column if not exists delivery_status public.delivery_status not null default 'pending';
 
 update public.orders
 set delivery_status = case status

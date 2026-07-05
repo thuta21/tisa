@@ -46,7 +46,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     items,
     hydrated,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
-    subtotal: items.reduce((total, item) => total + item.unitPrice * item.quantity, 0),
+    subtotal: items.reduce((total, item) => total + (item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity, 0),
     addItem: (item) => {
       const id = getCartItemId(item);
       setItems((current) => {

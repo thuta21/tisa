@@ -8,7 +8,7 @@ import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import { useCart } from "@/lib/CartContext";
 import {
-  formatPriceMMK,
+  formatPriceAED,
   getJerseyById,
   getJerseyKitImage,
   kitImageFilters,
@@ -53,39 +53,71 @@ export default function Cart() {
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
               <div className="divide-y divide-border border-y border-border">
                 {items.map((item, index) => {
-                  const jersey = getJerseyById(item.jerseyId);
-                  if (!jersey) return null;
-                  const kitLabel = kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit;
+                  const isFont = item.size === "Font File";
+                  const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
+                  if (!isFont && !jersey) return null;
+                  const kitLabel = isFont ? "Digital Font File" : (kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit);
 
                   return (
                     <article key={item.id} className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-6">
-                      <Link
-                        href={`/jersey/${jersey.id}`}
-                        className="relative aspect-[3/4] overflow-hidden rounded-lg bg-muted/50"
-                      >
-                        <Image
-                          src={getJerseyKitImage(jersey, item.kit)}
-                          alt={`${jersey.name} ${kitLabel}`}
-                          fill
-                          sizes="120px"
-                          priority={index === 0}
-                          className="object-contain p-2"
-                          style={{ filter: kitImageFilters[item.kit] }}
-                        />
-                      </Link>
+                      <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-muted/50 flex items-center justify-center">
+                        {isFont ? (
+                          <div className="flex flex-col items-center gap-1.5 text-muted-foreground p-3">
+                            <span className="font-extrabold text-3xl font-display text-primary">Aa</span>
+                            <span className="text-[8px] uppercase tracking-wider font-mono">.TTF File</span>
+                          </div>
+                        ) : (
+                          <Link
+                            href={`/jersey/${jersey!.id}`}
+                            className="absolute inset-0"
+                          >
+                            <Image
+                              src={getJerseyKitImage(jersey!, item.kit)}
+                              alt={`${jersey!.name} ${kitLabel}`}
+                              fill
+                              sizes="120px"
+                              priority={index === 0}
+                              className="object-contain p-2"
+                              style={{ filter: kitImageFilters[item.kit] }}
+                            />
+                          </Link>
+                        )}
+                      </div>
 
                       <div className="min-w-0">
-                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{jersey.collection}</p>
-                        <Link href={`/jersey/${jersey.id}`} className="mt-1 block truncate text-base font-bold hover:underline">
-                          {jersey.name}
-                        </Link>
-                        <p className="mt-1 text-xs text-muted-foreground">{kitLabel} / Size {item.size}</p>
-                        {(item.customName || item.customNumber) && (
+                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          {isFont ? "Font Shop" : jersey!.collection}
+                        </p>
+                        {isFont ? (
+                          <span className="mt-1 block truncate text-base font-bold text-foreground">
+                            {item.customName} Custom Font
+                          </span>
+                        ) : (
+                          <Link href={`/jersey/${jersey!.id}`} className="mt-1 block truncate text-base font-bold hover:underline">
+                            {jersey!.name}
+                          </Link>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {isFont ? "Digital Purchase" : `${kitLabel} / Size ${item.size}`}
+                        </p>
+                        {!isFont && (item.customName || item.customNumber) && (
                           <p className="mt-1 text-xs text-muted-foreground">
                             Print: {[item.customName, item.customNumber].filter(Boolean).join(" ")}
+                            {item.customizationFee ? ` (+${formatPriceAED(item.customizationFee)})` : ""}
                           </p>
                         )}
-                        <p className="mt-3 text-sm font-semibold sm:hidden">{formatPriceMMK(item.unitPrice * item.quantity)}</p>
+                        {!isFont && item.fontSlug && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Font: {item.fontSlug}
+                          </p>
+                        )}
+                        {!isFont && item.armBadge && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Badge: {item.armBadge.toUpperCase()}
+                            {item.armBadgeFee ? ` (+${formatPriceAED(item.armBadgeFee)})` : ""}
+                          </p>
+                        )}
+                        <p className="mt-3 text-sm font-semibold sm:hidden">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
 
                         <div className="mt-4 flex items-center gap-3">
                           <div className="flex items-center rounded-full border border-border p-0.5">
@@ -111,7 +143,7 @@ export default function Cart() {
                             type="button"
                             onClick={() => removeItem(item.id)}
                             className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Remove ${jersey.name}`}
+                            aria-label={`Remove ${isFont ? item.customName : jersey!.name}`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -119,8 +151,8 @@ export default function Cart() {
                       </div>
 
                       <div className="hidden text-right sm:block">
-                        <p className="text-sm font-bold">{formatPriceMMK(item.unitPrice * item.quantity)}</p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">{formatPriceMMK(item.unitPrice)} each</p>
+                        <p className="text-sm font-bold">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{formatPriceAED(item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0))} each</p>
                       </div>
                     </article>
                   );
@@ -132,7 +164,7 @@ export default function Cart() {
                 <dl className="mt-5 space-y-3 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                     <dt>Subtotal</dt>
-                    <dd className="text-foreground">{formatPriceMMK(subtotal)}</dd>
+                    <dd className="text-foreground">{formatPriceAED(subtotal)}</dd>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <dt>Delivery</dt>
@@ -141,7 +173,7 @@ export default function Cart() {
                 </dl>
                 <div className="mt-5 flex items-end justify-between border-t border-border pt-5">
                   <span className="text-sm font-semibold">Total</span>
-                  <span className="text-xl font-bold">{formatPriceMMK(subtotal)}</span>
+                  <span className="text-xl font-bold">{formatPriceAED(subtotal)}</span>
                 </div>
                 <Link
                   href="/checkout"
