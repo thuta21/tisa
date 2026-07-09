@@ -22,6 +22,7 @@ export default function Footer() {
         <nav className="flex gap-8 text-[10px] tracking-[0.15em] uppercase text-muted-foreground font-mono">
           <Link href="/" className="hover:text-primary transition-colors">Home</Link>
           <Link href="/shop" className="hover:text-primary transition-colors">Shop</Link>
+          <Link href="/pricelists" className="hover:text-primary transition-colors">Pricelists</Link>
           <Link href="/contact" className="hover:text-primary transition-colors">Contact</Link>
           <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Instagram</a>
           <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Twitter</a>

@@ -26,11 +26,18 @@ export default function Checkout() {
   const [submittedOrder, setSubmittedOrder] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const hasStalePhysicalItems = items.some((item) => item.size !== "Font File" && (!item.productId || !item.variantId));
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError("");
     setSubmitting(true);
+
+    if (hasStalePhysicalItems) {
+      setSubmitError("Some jersey items were added before live stock tracking was enabled. Please remove and re-add them from the shop.");
+      setSubmitting(false);
+      return;
+    }
 
     const formData = new FormData(event.currentTarget);
     const reference = `TISA-${Date.now().toString().slice(-6)}`;
@@ -73,19 +80,19 @@ export default function Checkout() {
     const orderItems = items.flatMap((item) => {
       const isFont = item.size === "Font File";
       const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
-      if (!isFont && !jersey) return [];
+      if (!isFont && !item.productId) return [];
 
       const addOns = (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0);
       const unitTotal = item.unitPrice + addOns;
       const kitLabel = isFont
         ? "Digital Font File"
-        : kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit;
+        : item.variantName ?? kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit;
 
       return [{
         order_id: orderId,
-        product_id: null,
-        variant_id: null,
-        product_name: isFont ? `${item.customName} Custom Font` : jersey!.name,
+        product_id: isFont ? null : item.productId ?? null,
+        variant_id: isFont ? null : item.variantId ?? null,
+        product_name: isFont ? `${item.customName} Custom Font` : item.productName ?? jersey?.name ?? "Jersey",
         kit_name: kitLabel,
         size: item.size,
         custom_name: item.customName ?? null,
@@ -102,7 +109,9 @@ export default function Checkout() {
 
     const itemsResult = await supabase.from("order_items").insert(orderItems);
     if (itemsResult.error) {
-      setSubmitError(itemsResult.error.message);
+      setSubmitError(itemsResult.error.message.includes("Insufficient stock")
+        ? "One or more selected jerseys are no longer available in the requested quantity. Please update your bag and try again."
+        : itemsResult.error.message);
       setSubmitting(false);
       return;
     }
@@ -202,6 +211,11 @@ export default function Checkout() {
             </Link>
             <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Checkout</h1>
             <p className="mt-2 text-sm text-muted-foreground">Delivery details and mobile wallet payment.</p>
+            {hasStalePhysicalItems && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Some jersey items need to be removed and added again before checkout because live stock tracking is now enabled.
+              </div>
+            )}
           </div>
 
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -301,8 +315,10 @@ export default function Checkout() {
                 {items.map((item, index) => {
                   const isFont = item.size === "Font File";
                   const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
-                  if (!isFont && !jersey) return null;
-                  const kitLabel = isFont ? "Digital Font File" : kitOptions.find((kit) => kit.id === item.kit)?.label;
+                  if (!isFont && !jersey && !item.productName) return null;
+                  const kitLabel = isFont ? "Digital Font File" : item.variantName ?? kitOptions.find((kit) => kit.id === item.kit)?.label;
+                  const productName = item.productName ?? jersey?.name ?? "Jersey";
+                  const imageSrc = item.imageUrl ?? (jersey ? getJerseyKitImage(jersey, item.kit) : "/assets/tisa-shirt.png");
                   return (
                     <div key={item.id} className="flex gap-3">
                       <div className="relative h-20 w-16 shrink-0 rounded-md bg-muted/50 flex items-center justify-center overflow-hidden">
@@ -312,12 +328,12 @@ export default function Checkout() {
                             <span className="text-[7px] uppercase tracking-wider font-mono">.TTF File</span>
                           </div>
                         ) : (
-                          <Image src={getJerseyKitImage(jersey!, item.kit)} alt={jersey!.name} fill sizes="64px" priority={index === 0} className="object-contain p-1" style={{ filter: kitImageFilters[item.kit] }} />
+                          <Image src={imageSrc} alt={productName} fill sizes="64px" priority={index === 0} className="object-contain p-1" style={{ filter: kitImageFilters[item.kit] }} />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">
-                          {isFont ? `${item.customName} Custom Font` : jersey!.name}
+                          {isFont ? `${item.customName} Custom Font` : productName}
                         </p>
                         <p className="mt-0.5 text-[10px] text-muted-foreground">
                           {isFont ? "Digital Download" : `${kitLabel} / ${item.size} / Qty ${item.quantity}`}

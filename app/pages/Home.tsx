@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import Carousel3D from "@/components/jersey/Carousel3D";
-import { getFeaturedJerseys } from "@/lib/jerseys";
+import { loadCatalogJerseys, type CatalogJersey } from "@/lib/products";
 
 const particles = Array.from({ length: 20 }, (_, index) => ({
   id: index,
@@ -20,8 +20,26 @@ const particles = Array.from({ length: 20 }, (_, index) => ({
 
 export default function Home() {
   const router = useRouter();
-  const jerseys = useMemo(() => getFeaturedJerseys(), []);
-  const loading = false;
+  const [jerseys, setJerseys] = useState<CatalogJersey[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    loadCatalogJerseys()
+      .then((items) => {
+        if (mounted) setJerseys(items.filter((item) => item.featured));
+      })
+      .catch(() => {
+        if (mounted) setJerseys([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -63,7 +81,7 @@ export default function Home() {
         {jerseys.length > 0 ? (
           <Carousel3D
             jerseys={jerseys}
-            onSelect={(jersey) => router.push(`/jersey/${jersey.id}`)}
+            onSelect={(jersey) => router.push(`/jersey/${(jersey as CatalogJersey).slug ?? jersey.id}`)}
           />
         ) : (
           <div className="text-center py-24">

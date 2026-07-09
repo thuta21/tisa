@@ -10,7 +10,6 @@ import { useCart } from "@/lib/CartContext";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   formatPriceAED,
-  getJerseyById,
   getJerseyKitImage,
   getJerseyKitPrice,
   isJerseyKitAvailable,
@@ -19,9 +18,9 @@ import {
   getTeamPrintColor,
   isFontRelevantToJersey,
   type DbFont,
-  type Jersey,
   type KitVariant,
 } from "@/lib/jerseys";
+import { loadCatalogJersey, type CatalogJersey, type CatalogJerseyKit } from "@/lib/products";
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
@@ -37,8 +36,8 @@ function getJerseyPreviewUrl(fontSlug: string, text: string, color: string) {
 }
 
 export default function JerseyDetail({ id }: { id: string }) {
-  const jersey: Jersey | null = getJerseyById(id);
-  const loading = false;
+  const [jersey, setJersey] = useState<CatalogJersey | null>(null);
+  const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState("front");
   const [selectedKit, setSelectedKit] = useState<KitVariant>("home");
@@ -51,6 +50,31 @@ export default function JerseyDetail({ id }: { id: string }) {
   const [added, setAdded] = useState(false);
   const [availableFonts, setAvailableFonts] = useState<DbFont[]>([]);
   const [selectedFontSlug, setSelectedFontSlug] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    loadCatalogJersey(id)
+      .then((item) => {
+        if (!mounted) return;
+        setJersey(item);
+        if (item) {
+          const firstKit = kitOptions.find((kit) => item.kits[kit.id]?.available)?.id ?? "home";
+          setSelectedKit(firstKit);
+          setSelectedSize("");
+          setQuantity(1);
+        }
+      })
+      .catch(() => {
+        if (mounted) setJersey(null);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -67,7 +91,10 @@ export default function JerseyDetail({ id }: { id: string }) {
           });
         }
       });
+  }, []);
 
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
     supabase
       .from("fonts")
       .select(fontSelect)
@@ -82,7 +109,7 @@ export default function JerseyDetail({ id }: { id: string }) {
         setAvailableFonts(nextFonts);
         setSelectedFontSlug((current) => current || nextFonts[0]?.slug || "");
       });
-  }, []);
+  }, [jersey]);
 
   if (loading) {
     return (
@@ -114,7 +141,9 @@ export default function JerseyDetail({ id }: { id: string }) {
   ].filter((s) => s.value);
   const [primaryColor, secondaryColor, tertiaryColor = secondaryColor] = jersey.country_colors;
   const kitImage = getJerseyKitImage(jersey, selectedKit);
-  const displayImage = activeImage === "front" ? kitImage : (jersey.image_back || kitImage);
+  const selectedKitData = jersey.kits[selectedKit] as CatalogJerseyKit;
+  const selectedKitSizes = selectedKitData.sizes;
+  const displayImage = activeImage === "front" ? kitImage : (selectedKitData.imageBack || jersey.image_back || kitImage);
   const imageFilter = `drop-shadow(0 25px 40px rgba(0,0,0,0.34)) ${kitImageFilters[selectedKit]}`;
   const selectedPrice = getJerseyKitPrice(jersey, selectedKit);
 
@@ -126,9 +155,15 @@ export default function JerseyDetail({ id }: { id: string }) {
   const customizationPreviewText = `${customName.trim() || "PLAYER"} ${customNumber.trim() || "10"}`;
 
   const handleAddToCart = () => {
-    if (!selectedSize) return;
+    if (!selectedSize || !selectedKitData.variantId) return;
     addItem({
       jerseyId: jersey.id,
+      productId: jersey.productId,
+      variantId: selectedKitData.variantId,
+      productName: jersey.name,
+      variantName: selectedKitData.variantName ?? kitOptions.find((kit) => kit.id === selectedKit)?.label ?? selectedKit,
+      imageUrl: selectedKitData.image,
+      productSlug: jersey.slug,
       kit: selectedKit,
       size: selectedSize,
       quantity,
@@ -204,12 +239,18 @@ export default function JerseyDetail({ id }: { id: string }) {
               <div className="mt-2 flex items-center justify-center gap-1 rounded-full border border-border/60 bg-background/80 p-1 shadow-sm">
                 {kitOptions.map((kit) => {
                   const available = isJerseyKitAvailable(jersey, kit.id);
+                  const stock = (jersey.kits[kit.id] as CatalogJerseyKit).stock;
 
                   return (
                     <button
                       key={kit.id}
                       type="button"
-                      onClick={() => available && setSelectedKit(kit.id)}
+                      onClick={() => {
+                        if (!available) return;
+                        setSelectedKit(kit.id);
+                        setSelectedSize("");
+                        setQuantity(1);
+                      }}
                         disabled={!available}
                         aria-disabled={!available}
                         className={`relative h-8 flex-1 overflow-hidden rounded-full px-2 text-[9px] font-semibold uppercase tracking-[0.1em] transition-colors sm:text-[10px] ${
@@ -229,6 +270,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                         )}
                         <span className="relative z-10">{kit.label}</span>
                         {!available && <span className="relative z-10 ml-1 hidden text-[8px] sm:inline">OOS</span>}
+                        {available && stock <= 3 && <span className="relative z-10 ml-1 hidden text-[8px] sm:inline">LOW</span>}
                       </button>
                     );
                   })}
@@ -290,7 +332,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                   </Link>
                 </div>
                 <div className="mt-3 grid grid-cols-5 gap-2">
-                  {jersey.sizes.map((size) => (
+                  {selectedKitSizes.map((size) => (
                     <button
                       key={size}
                       type="button"
@@ -304,6 +346,11 @@ export default function JerseyDetail({ id }: { id: string }) {
                       {size}
                     </button>
                   ))}
+                  {selectedKitSizes.length === 0 && (
+                    <p className="col-span-5 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-muted-foreground">
+                      This kit is currently out of stock.
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -378,8 +425,9 @@ export default function JerseyDetail({ id }: { id: string }) {
                     <span className="w-9 text-center text-sm font-semibold">{quantity}</span>
                     <button
                       type="button"
-                      onClick={() => setQuantity((current) => Math.min(10, current + 1))}
-                      className="flex size-8 items-center justify-center rounded-full hover:bg-muted"
+                      onClick={() => setQuantity((current) => Math.min(10, selectedKitData.stock, current + 1))}
+                      disabled={quantity >= Math.min(10, Math.max(1, selectedKitData.stock))}
+                      className="flex size-8 items-center justify-center rounded-full hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
                       aria-label="Increase quantity"
                     >
                       <Plus size={14} />
@@ -393,7 +441,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={!selectedSize}
+                  disabled={!selectedSize || !selectedKitData.variantId || selectedKitData.stock < 1}
                   className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   {added ? <Check size={15} /> : <ShoppingBag size={15} />}

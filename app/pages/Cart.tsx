@@ -55,8 +55,12 @@ export default function Cart() {
                 {items.map((item, index) => {
                   const isFont = item.size === "Font File";
                   const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
-                  if (!isFont && !jersey) return null;
+                  if (!isFont && !jersey && !item.productName) return null;
                   const kitLabel = isFont ? "Digital Font File" : (kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit);
+                  const productName = item.productName ?? jersey?.name ?? "Jersey";
+                  const productCollection = item.variantName ?? jersey?.collection ?? "Supabase catalog";
+                  const productHref = `/jersey/${item.productSlug ?? item.jerseyId}`;
+                  const imageSrc = item.imageUrl ?? (jersey ? getJerseyKitImage(jersey, item.kit) : "/assets/tisa-shirt.png");
 
                   return (
                     <article key={item.id} className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 py-5 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-6">
@@ -68,12 +72,12 @@ export default function Cart() {
                           </div>
                         ) : (
                           <Link
-                            href={`/jersey/${jersey!.id}`}
+                            href={productHref}
                             className="absolute inset-0"
                           >
                             <Image
-                              src={getJerseyKitImage(jersey!, item.kit)}
-                              alt={`${jersey!.name} ${kitLabel}`}
+                              src={imageSrc}
+                              alt={`${productName} ${kitLabel}`}
                               fill
                               sizes="120px"
                               priority={index === 0}
@@ -86,15 +90,15 @@ export default function Cart() {
 
                       <div className="min-w-0">
                         <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {isFont ? "Font Shop" : jersey!.collection}
+                          {isFont ? "Font Shop" : productCollection}
                         </p>
                         {isFont ? (
                           <span className="mt-1 block truncate text-base font-bold text-foreground">
                             {item.customName} Custom Font
                           </span>
                         ) : (
-                          <Link href={`/jersey/${jersey!.id}`} className="mt-1 block truncate text-base font-bold hover:underline">
-                            {jersey!.name}
+                          <Link href={productHref} className="mt-1 block truncate text-base font-bold hover:underline">
+                            {productName}
                           </Link>
                         )}
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -143,7 +147,7 @@ export default function Cart() {
                             type="button"
                             onClick={() => removeItem(item.id)}
                             className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Remove ${isFont ? item.customName : jersey!.name}`}
+                            aria-label={`Remove ${isFont ? item.customName : productName}`}
                           >
                             <Trash2 size={14} />
                           </button>

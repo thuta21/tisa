@@ -1,18 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
-import { formatPriceAED, jerseys } from "@/lib/jerseys";
+import { formatPriceAED } from "@/lib/jerseys";
+import { loadCatalogJerseys, type CatalogJersey } from "@/lib/products";
 
 export default function Shop() {
-  const loading = false;
+  const [jerseys, setJerseys] = useState<CatalogJersey[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    loadCatalogJerseys()
+      .then((items) => {
+        if (mounted) setJerseys(items);
+      })
+      .catch(() => {
+        if (mounted) setJerseys([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const categories = ["All", ...new Set(jerseys.map((j) => j.category).filter(Boolean))];
 
@@ -80,7 +100,7 @@ export default function Shop() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.08 }}
                 >
-                  <Link href={`/jersey/${jersey.id}`} className="group block">
+                  <Link href={`/jersey/${jersey.slug}`} className="group block">
                     <div
                       className="relative border border-border rounded-2xl overflow-hidden transition-all duration-500 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5"
                       style={{

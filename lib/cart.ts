@@ -3,6 +3,12 @@ import type { KitVariant } from "@/lib/jerseys";
 export type CartItem = {
   id: string;
   jerseyId: string;
+  productId?: string;
+  variantId?: string;
+  productName?: string;
+  variantName?: string;
+  imageUrl?: string;
+  productSlug?: string;
   kit: KitVariant;
   size: string;
   quantity: number;
@@ -19,7 +25,7 @@ export type AddCartItem = Omit<CartItem, "id">;
 
 export function getCartItemId(item: AddCartItem) {
   return [
-    item.jerseyId,
+    item.variantId ?? item.jerseyId,
     item.kit,
     item.size,
     item.customName?.trim().toUpperCase() || "standard",

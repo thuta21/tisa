@@ -41,7 +41,7 @@ import { type DbFont } from "@/lib/jerseys";
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
-type AdminTab = "overview" | "orders" | "products" | "payments" | "print" | "settings";
+type AdminTab = "overview" | "orders" | "products" | "inventory" | "payments" | "print" | "settings";
 type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges" | "payment_methods" | "fonts";
 type KitVariant = "home" | "away" | "third";
 type ProductStatus = "draft" | "active" | "archived";
@@ -173,6 +173,7 @@ type DbInventory = {
   size: string;
   quantity: number;
   reserved: number;
+  is_active?: boolean;
 };
 
 type DbLeague = {
@@ -311,6 +312,7 @@ const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ size?: nu
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "orders", label: "Orders", icon: ReceiptText },
   { id: "products", label: "Products", icon: Shirt },
+  { id: "inventory", label: "Inventory", icon: Boxes },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "print", label: "Print", icon: Printer },
   { id: "settings", label: "Settings", icon: Settings },
@@ -613,10 +615,19 @@ function getPublicProductImage(path?: string | null) {
   return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
 }
 
+function isInventoryActive(row: Pick<DbInventory, "is_active">) {
+  return row.is_active !== false;
+}
+
+function getAvailableStock(row: Pick<DbInventory, "quantity" | "reserved" | "is_active">) {
+  if (!isInventoryActive(row)) return 0;
+  return Math.max(0, row.quantity - row.reserved);
+}
+
 function getProductStock(product: DbProduct) {
   const stock = { home: 0, away: 0, third: 0 } satisfies Record<KitVariant, number>;
   for (const variant of product.product_variants ?? []) {
-    stock[variant.kit] = (variant.inventory ?? []).reduce((sum, row) => sum + row.quantity - row.reserved, 0);
+    stock[variant.kit] = (variant.inventory ?? []).reduce((sum, row) => sum + getAvailableStock(row), 0);
   }
   return stock;
 }
@@ -624,7 +635,9 @@ function getProductStock(product: DbProduct) {
 function getProductSizes(product: DbProduct) {
   const sizes = new Set<string>();
   for (const variant of product.product_variants ?? []) {
-    for (const row of variant.inventory ?? []) sizes.add(row.size);
+    for (const row of variant.inventory ?? []) {
+      if (isInventoryActive(row)) sizes.add(row.size);
+    }
   }
   return Array.from(sizes);
 }
@@ -784,6 +797,8 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [query, setQuery] = useState("");
+  const [inventoryQuery, setInventoryQuery] = useState("");
+  const [inventoryStockFilter, setInventoryStockFilter] = useState<"all" | "low" | "out">("all");
   const [orderPaymentFilter, setOrderPaymentFilter] = useState<OrderPaymentFilter>("all");
   const [orderDateFilter, setOrderDateFilter] = useState<OrderDateFilter>("all");
   const [orderDeliveryFilter, setOrderDeliveryFilter] = useState<DeliveryStatus | "all">("all");
@@ -1065,40 +1080,92 @@ export default function AdminDashboard() {
         note: "Status updated during order edit",
       });
     }
-    if (form.id) {
-      const { error } = await supabase.from("order_items").delete().eq("order_id", orderId);
-      if (error) {
-        setActionMessage(error.message);
-        return;
-      }
-    }
-
     const orderItems = items.map((item) => {
       const quantity = toNumber(item.quantity, 1);
       const unitPrice = toNumber(item.unit_price);
       return {
-        order_id: orderId,
-        product_id: item.product_id || null,
-        variant_id: item.variant_id || null,
-        product_name: item.product_name.trim(),
-        kit_name: item.kit_name.trim() || kitOptions.find((kit) => kit.id === item.kit)?.label || "Home Kit",
-        size: item.size.trim(),
-        custom_name: item.custom_name.trim() || null,
-        custom_number: item.custom_number.trim() || null,
-        font_slug: null,
-        arm_badge: item.arm_badge || null,
-        customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
-        arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
-        quantity,
-        unit_price: unitPrice,
-        line_total: getOrderItemTotal(item, addOnPricing),
+        id: item.id,
+        payload: {
+          order_id: orderId,
+          product_id: item.product_id || null,
+          variant_id: item.variant_id || null,
+          product_name: item.product_name.trim(),
+          kit_name: item.kit_name.trim() || kitOptions.find((kit) => kit.id === item.kit)?.label || "Home Kit",
+          size: item.size.trim(),
+          custom_name: item.custom_name.trim() || null,
+          custom_number: item.custom_number.trim() || null,
+          font_slug: null,
+          arm_badge: item.arm_badge || null,
+          customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
+          arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
+          quantity,
+          unit_price: unitPrice,
+          line_total: getOrderItemTotal(item, addOnPricing),
+        },
       };
     });
 
-    const itemResult = await supabase.from("order_items").insert(orderItems);
-    if (itemResult.error) {
-      setActionMessage(itemResult.error.message);
-      return;
+    const getStockErrorMessage = (message: string) => (
+      message.includes("Insufficient stock")
+        ? "Insufficient stock for one or more order items."
+        : message
+    );
+
+    const orderItemChanged = (existing: DbOrderItem, next: (typeof orderItems)[number]["payload"]) => (
+      existing.product_id !== next.product_id
+      || existing.variant_id !== next.variant_id
+      || existing.product_name !== next.product_name
+      || existing.kit_name !== next.kit_name
+      || existing.size !== next.size
+      || (existing.custom_name ?? null) !== next.custom_name
+      || (existing.custom_number ?? null) !== next.custom_number
+      || (existing.font_slug ?? null) !== next.font_slug
+      || (existing.arm_badge ?? null) !== next.arm_badge
+      || existing.customization_fee !== next.customization_fee
+      || existing.arm_badge_fee !== next.arm_badge_fee
+      || existing.quantity !== next.quantity
+      || existing.unit_price !== next.unit_price
+      || existing.line_total !== next.line_total
+    );
+
+    if (!form.id) {
+      const itemResult = await supabase.from("order_items").insert(orderItems.map((item) => item.payload));
+      if (itemResult.error) {
+        setActionMessage(getStockErrorMessage(itemResult.error.message));
+        return;
+      }
+    } else {
+      const existingItems = currentOrder?.order_items ?? [];
+      const nextIds = new Set(orderItems.map((item) => item.id).filter(Boolean));
+
+      for (const existingItem of existingItems) {
+        if (nextIds.has(existingItem.id)) continue;
+        const { error } = await supabase.from("order_items").delete().eq("id", existingItem.id);
+        if (error) {
+          setActionMessage(getStockErrorMessage(error.message));
+          return;
+        }
+      }
+
+      const existingById = new Map(existingItems.map((item) => [item.id, item]));
+      for (const item of orderItems) {
+        if (!item.id) {
+          const { error } = await supabase.from("order_items").insert(item.payload);
+          if (error) {
+            setActionMessage(getStockErrorMessage(error.message));
+            return;
+          }
+          continue;
+        }
+
+        const existingItem = existingById.get(item.id);
+        if (!existingItem || !orderItemChanged(existingItem, item.payload)) continue;
+        const { error } = await supabase.from("order_items").update(item.payload).eq("id", item.id);
+        if (error) {
+          setActionMessage(getStockErrorMessage(error.message));
+          return;
+        }
+      }
     }
 
     setEditingOrder(null);
@@ -1176,14 +1243,27 @@ export default function AdminDashboard() {
 
   const handleQuickStockUpdate = async (inventoryId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
+    const inventoryRow = products
+      .flatMap((product) => product.product_variants ?? [])
+      .flatMap((variant) => variant.inventory ?? [])
+      .find((row) => row.id === inventoryId);
+
+    if (inventoryRow && newQuantity < inventoryRow.reserved) {
+      setActionMessage(`Stock cannot be lower than reserved quantity (${inventoryRow.reserved}).`);
+      return;
+    }
+
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("inventory")
       .update({ quantity: newQuantity })
-      .eq("id", inventoryId);
+      .eq("id", inventoryId)
+      .lte("reserved", newQuantity)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
-      setActionMessage(error.message);
+    if (error || !data) {
+      setActionMessage(error?.message ?? "Stock cannot be lower than reserved quantity.");
       return;
     }
 
@@ -1492,6 +1572,7 @@ export default function AdminDashboard() {
     }
 
     const productId = productResult.data.id as string;
+    const currentProduct = form.id ? products.find((product) => product.id === form.id) : null;
 
     for (const kit of kitOptions) {
       const variant = form.variants[kit.id];
@@ -1517,18 +1598,43 @@ export default function AdminDashboard() {
       }
 
       const variantId = variantResult.data.id as string;
-      await supabase.from("inventory").delete().eq("variant_id", variantId);
+      const existingInventory = currentProduct?.product_variants
+        ?.find((item) => item.id === variantId || item.kit === kit.id)
+        ?.inventory ?? [];
+      const existingBySize = new Map(existingInventory.map((row) => [row.size, row]));
+      const selectedSizeSet = new Set(inventorySizes);
 
       if (inventorySizes.length) {
         const inventoryRows = inventorySizes.map((size) => ({
           variant_id: variantId,
           size,
-          quantity: variant.available ? Math.max(0, Math.floor(toNumber(variant.stockBySize[size]))) : 0,
-          reserved: 0,
+          quantity: Math.max(
+            existingBySize.get(size)?.reserved ?? 0,
+            variant.available ? Math.max(0, Math.floor(toNumber(variant.stockBySize[size]))) : 0,
+          ),
+          is_active: variant.available,
         }));
-        const inventoryResult = await supabase.from("inventory").insert(inventoryRows);
+        const inventoryResult = await supabase
+          .from("inventory")
+          .upsert(inventoryRows, { onConflict: "variant_id,size" });
         if (inventoryResult.error) {
           setActionMessage(inventoryResult.error.message);
+          return;
+        }
+      }
+
+      const removedSizes = existingInventory
+        .filter((row) => isInventoryActive(row) && !selectedSizeSet.has(row.size))
+        .map((row) => row.size);
+
+      if (removedSizes.length) {
+        const inactiveResult = await supabase
+          .from("inventory")
+          .update({ is_active: false })
+          .eq("variant_id", variantId)
+          .in("size", removedSizes);
+        if (inactiveResult.error) {
+          setActionMessage(inactiveResult.error.message);
           return;
         }
       }
@@ -1614,7 +1720,8 @@ export default function AdminDashboard() {
       (product.product_variants ?? []).forEach((variant) => {
         if (!variant.available) return;
         (variant.inventory ?? []).forEach((inv) => {
-          const availableStock = inv.quantity - inv.reserved;
+          if (!isInventoryActive(inv)) return;
+          const availableStock = getAvailableStock(inv);
           if (availableStock <= 8) {
             list.push({
               inventoryId: inv.id,
@@ -1631,6 +1738,47 @@ export default function AdminDashboard() {
 
     return list;
   }, [products]);
+
+  const inventoryRows = useMemo(() => {
+    return products.flatMap((product) => (
+      (product.product_variants ?? []).flatMap((variant) => (
+        (variant.inventory ?? [])
+          .filter(isInventoryActive)
+          .map((inv) => ({
+            inventoryId: inv.id,
+            productId: product.id,
+            productName: product.name,
+            productStatus: product.status,
+            kitName: variant.name,
+            kit: variant.kit,
+            sku: variant.sku,
+            size: inv.size,
+            quantity: inv.quantity,
+            reserved: inv.reserved,
+            available: getAvailableStock(inv),
+            imagePath: variant.image_front_path,
+            variantAvailable: variant.available,
+          }))
+      ))
+    ));
+  }, [products]);
+
+  const filteredInventoryRows = useMemo(() => {
+    const term = inventoryQuery.trim().toLowerCase();
+    return inventoryRows.filter((row) => {
+      const matchesSearch = !term || [
+        row.productName,
+        row.kitName,
+        row.sku ?? "",
+        row.size,
+      ].some((value) => value.toLowerCase().includes(term));
+      const matchesStock =
+        inventoryStockFilter === "all"
+        || (inventoryStockFilter === "low" && row.available > 0 && row.available <= 8)
+        || (inventoryStockFilter === "out" && row.available <= 0);
+      return matchesSearch && matchesStock;
+    });
+  }, [inventoryQuery, inventoryRows, inventoryStockFilter]);
 
   const filteredOrders = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -1724,7 +1872,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <nav className="grid grid-cols-6 gap-1 md:mt-8 md:grid-cols-1 md:gap-2">
+        <nav className="grid grid-cols-7 gap-1 md:mt-8 md:grid-cols-1 md:gap-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -1809,9 +1957,14 @@ export default function AdminDashboard() {
       <main className="px-4 pb-24 pt-5 md:ml-72 md:px-8 md:pb-10 md:pt-8 xl:px-10">
         <header className="flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Link href="/" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
-              Storefront <ArrowUpRight size={13} />
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
+                Storefront <ArrowUpRight size={13} />
+              </Link>
+              <Link href="/pricelists" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
+                Pricelists <ArrowUpRight size={13} />
+              </Link>
+            </div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Admin Panel</h1>
           </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -2042,6 +2195,25 @@ export default function AdminDashboard() {
                   <MetricCard label="Ready variants" value={readyVariants.toString()} icon={PackageCheck} />
                 </div>
                 <ProductsPanel rows={productRows} sizes={sizes} onEdit={setEditingProduct} onDelete={deleteProduct} />
+              </section>
+            )}
+
+            {activeTab === "inventory" && (
+              <section className="mt-6 space-y-6">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <MetricCard label="Available units" value={inventoryRows.reduce((sum, row) => sum + row.available, 0).toString()} icon={Boxes} />
+                  <MetricCard label="Low stock sizes" value={inventoryRows.filter((row) => row.available > 0 && row.available <= 8).length.toString()} icon={AlertTriangle} attention={inventoryRows.some((row) => row.available > 0 && row.available <= 8)} />
+                  <MetricCard label="Out of stock sizes" value={inventoryRows.filter((row) => row.available <= 0).length.toString()} icon={PackageCheck} attention={inventoryRows.some((row) => row.available <= 0)} />
+                </div>
+                <InventoryPanel
+                  rows={filteredInventoryRows}
+                  query={inventoryQuery}
+                  stockFilter={inventoryStockFilter}
+                  totalRows={inventoryRows.length}
+                  onQueryChange={setInventoryQuery}
+                  onStockFilterChange={setInventoryStockFilter}
+                  onUpdateStock={handleQuickStockUpdate}
+                />
               </section>
             )}
 
@@ -2427,6 +2599,258 @@ function LowStockPanel({
       </div>
     </section>
   );
+}
+
+function InventoryPanel({
+  rows,
+  query,
+  stockFilter,
+  totalRows,
+  onQueryChange,
+  onStockFilterChange,
+  onUpdateStock,
+}: {
+  rows: {
+    inventoryId: string;
+    productId: string;
+    productName: string;
+    productStatus: ProductStatus;
+    kitName: string;
+    kit: KitVariant;
+    sku: string | null;
+    size: string;
+    quantity: number;
+    reserved: number;
+    available: number;
+    imagePath: string | null;
+    variantAvailable: boolean;
+  }[];
+  query: string;
+  stockFilter: "all" | "low" | "out";
+  totalRows: number;
+  onQueryChange: (value: string) => void;
+  onStockFilterChange: (value: "all" | "low" | "out") => void;
+  onUpdateStock: (inventoryId: string, newQuantity: number) => Promise<void>;
+}) {
+  const [inputVal, setInputVal] = useState<Record<string, string>>({});
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const groups = useMemo(() => {
+    const grouped = new Map<string, {
+      productId: string;
+      productName: string;
+      productStatus: ProductStatus;
+      imagePath: string | null;
+      rows: typeof rows;
+      quantity: number;
+      reserved: number;
+      available: number;
+      lowCount: number;
+      outCount: number;
+      kitTotals: Record<KitVariant, number>;
+    }>();
+
+    for (const row of rows) {
+      const current = grouped.get(row.productId) ?? {
+        productId: row.productId,
+        productName: row.productName,
+        productStatus: row.productStatus,
+        imagePath: row.imagePath,
+        rows: [],
+        quantity: 0,
+        reserved: 0,
+        available: 0,
+        lowCount: 0,
+        outCount: 0,
+        kitTotals: { home: 0, away: 0, third: 0 },
+      };
+      current.rows.push(row);
+      current.quantity += row.quantity;
+      current.reserved += row.reserved;
+      current.available += row.available;
+      current.kitTotals[row.kit] += row.available;
+      if (row.available <= 0) current.outCount += 1;
+      else if (row.available <= 8) current.lowCount += 1;
+      if (!current.imagePath && row.imagePath) current.imagePath = row.imagePath;
+      grouped.set(row.productId, current);
+    }
+
+    return Array.from(grouped.values());
+  }, [rows]);
+
+  const handleSave = async (row: { inventoryId: string; reserved: number }) => {
+    const value = inputVal[row.inventoryId];
+    if (value === undefined || value.trim() === "") return;
+    const nextQuantity = Number.parseInt(value, 10);
+    if (!Number.isFinite(nextQuantity) || nextQuantity < row.reserved) return;
+    setUpdatingId(row.inventoryId);
+    try {
+      await onUpdateStock(row.inventoryId, nextQuantity);
+      setInputVal((current) => ({ ...current, [row.inventoryId]: "" }));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-background">
+      <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Inventory</p>
+          <h2 className="mt-1 text-lg font-bold">Stock by product</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Showing {rows.length} of {totalRows} active stock rows across {groups.length} products.</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,260px)_150px]">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Search inventory..."
+              className="h-10 w-full rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <select
+            value={stockFilter}
+            onChange={(event) => onStockFilterChange(event.target.value as "all" | "low" | "out")}
+            className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
+          >
+            <option value="all">All stock</option>
+            <option value="low">Low stock</option>
+            <option value="out">Out of stock</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="divide-y divide-border">
+        {groups.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            No inventory rows match the current filters.
+          </div>
+        ) : groups.map((group, index) => (
+          <details
+            key={group.productId}
+            open={index === 0 || Boolean(query.trim()) || stockFilter !== "all"}
+            className="group"
+          >
+            <summary className="grid cursor-pointer list-none gap-4 px-5 py-4 hover:bg-muted/20 lg:grid-cols-[minmax(0,1fr)_360px_160px_auto] lg:items-center [&::-webkit-details-marker]:hidden">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <Image src={getPublicProductImage(group.imagePath)} alt={group.productName} fill sizes="56px" className="object-contain p-1" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-foreground">{group.productName}</p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{group.productStatus} · {group.rows.length} size rows</p>
+                  {(group.lowCount > 0 || group.outCount > 0) && (
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                      {group.lowCount > 0 && `${group.lowCount} low`}
+                      {group.lowCount > 0 && group.outCount > 0 && " · "}
+                      {group.outCount > 0 && `${group.outCount} out`}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {kitOptions.map((kit) => (
+                  <div key={kit.id} className={`rounded-lg border px-3 py-2 ${group.kitTotals[kit.id] <= 0 ? "border-red-200 bg-red-50 text-red-700" : group.kitTotals[kit.id] <= 8 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-border bg-muted/30"}`}>
+                    <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{kit.label.replace(" Kit", "")}</span>
+                    <strong className="mt-1 block text-base">{group.kitTotals[kit.id]}</strong>
+                  </div>
+                ))}
+              </div>
+              <dl className="grid grid-cols-3 gap-3 text-right text-xs lg:grid-cols-1 lg:gap-1">
+                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Qty</dt><dd className="font-bold">{group.quantity}</dd></div>
+                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Reserved</dt><dd className="font-bold">{group.reserved}</dd></div>
+                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Available</dt><dd className="font-bold">{group.available}</dd></div>
+              </dl>
+              <ChevronDown size={17} className="hidden text-muted-foreground transition-transform group-open:rotate-180 lg:block" />
+            </summary>
+            <div className="border-t border-border bg-muted/10 px-3 pb-4">
+              <div className="overflow-x-auto rounded-lg border border-border bg-background">
+                <table className="w-full min-w-[720px] border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      <th className="px-4 py-3">Kit</th>
+                      <th className="px-4 py-3">Size</th>
+                      <th className="px-4 py-3 text-right">Quantity</th>
+                      <th className="px-4 py-3 text-right">Reserved</th>
+                      <th className="px-4 py-3 text-right">Available</th>
+                      <th className="px-4 py-3">Set stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {group.rows.map((row) => {
+                      const value = inputVal[row.inventoryId] ?? "";
+                      const parsed = value.trim() ? Number.parseInt(value, 10) : null;
+                      const invalid = parsed !== null && (!Number.isFinite(parsed) || parsed < row.reserved);
+                      const kitTone = getInventoryKitTone(row.kit);
+                      return (
+                        <tr key={row.inventoryId} className={kitTone.row}>
+                          <td className={`border-l-4 px-4 py-4 ${kitTone.border}`}>
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${kitTone.badge}`}>
+                              {row.kitName}
+                            </span>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">{row.sku ?? row.kit}</p>
+                          </td>
+                          <td className="px-4 py-4 font-bold">{row.size}</td>
+                          <td className="px-4 py-4 text-right font-bold">{row.quantity}</td>
+                          <td className="px-4 py-4 text-right">{row.reserved}</td>
+                          <td className={`px-4 py-4 text-right font-bold ${row.available <= 0 ? "text-destructive" : row.available <= 8 ? "text-amber-700" : "text-foreground"}`}>
+                            {row.available}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={row.reserved}
+                                value={value}
+                                onChange={(event) => setInputVal((current) => ({ ...current, [row.inventoryId]: event.target.value.replace(/\D/g, "") }))}
+                                placeholder={`>= ${row.reserved}`}
+                                className={`h-9 w-24 rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary ${invalid ? "border-destructive" : "border-border"}`}
+                              />
+                              <button
+                                type="button"
+                                disabled={updatingId === row.inventoryId || !value.trim() || invalid}
+                                onClick={() => handleSave(row)}
+                                className="h-9 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {updatingId === row.inventoryId ? "..." : "Set"}
+                              </button>
+                            </div>
+                            {invalid && <p className="mt-1 text-[10px] text-destructive">Must be at least reserved.</p>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getInventoryKitTone(kit: KitVariant) {
+  const tones: Record<KitVariant, { row: string; badge: string; border: string }> = {
+    home: {
+      row: "bg-sky-50/70 hover:bg-sky-100/70",
+      badge: "border-sky-200 bg-sky-100 text-sky-800",
+      border: "border-l-sky-400",
+    },
+    away: {
+      row: "bg-emerald-50/70 hover:bg-emerald-100/70",
+      badge: "border-emerald-200 bg-emerald-100 text-emerald-800",
+      border: "border-l-emerald-400",
+    },
+    third: {
+      row: "bg-amber-50/70 hover:bg-amber-100/70",
+      badge: "border-amber-200 bg-amber-100 text-amber-800",
+      border: "border-l-amber-400",
+    },
+  };
+  return tones[kit];
 }
 
 function MetricCard({
@@ -2896,6 +3320,7 @@ function OrderEditor({
   const applyProduct = (index: number, productId: string) => {
     const product = products.find((item) => item.id === productId);
     const firstVariant = product?.product_variants?.[0];
+    const firstSize = firstVariant?.inventory?.find(isInventoryActive)?.size;
     setItem(index, {
       product_id: productId,
       variant_id: firstVariant?.id ?? "",
@@ -2903,13 +3328,14 @@ function OrderEditor({
       product_name: product?.name ?? "",
       kit_name: firstVariant?.name ?? "Home Kit",
       unit_price: String(firstVariant?.price ?? product?.base_price ?? 0),
-      size: firstVariant?.inventory?.[0]?.size ?? sortByOrder(sizes)[0]?.label ?? "",
+      size: firstSize ?? sortByOrder(sizes)[0]?.label ?? "",
     });
   };
 
   const applyVariant = (index: number, variantId: string) => {
     const product = products.find((item) => item.product_variants?.some((variant) => variant.id === variantId));
     const variant = product?.product_variants?.find((item) => item.id === variantId);
+    const firstSize = variant?.inventory?.find(isInventoryActive)?.size;
     setItem(index, {
       product_id: product?.id ?? "",
       variant_id: variantId,
@@ -2917,7 +3343,7 @@ function OrderEditor({
       product_name: product?.name ?? "",
       kit_name: variant?.name ?? "",
       unit_price: String(variant?.price ?? product?.base_price ?? 0),
-      size: variant?.inventory?.[0]?.size ?? "",
+      size: firstSize ?? "",
     });
   };
 
@@ -3018,7 +3444,7 @@ function OrderEditor({
               {form.items.map((item, index) => {
                 const product = products.find((productItem) => productItem.id === item.product_id);
                 const variant = product?.product_variants?.find((variantItem) => variantItem.id === item.variant_id);
-                const itemSizes = variant?.inventory?.map((row) => row.size) ?? sortByOrder(sizes).map((size) => size.label);
+                const itemSizes = variant?.inventory?.filter(isInventoryActive).map((row) => row.size) ?? sortByOrder(sizes).map((size) => size.label);
                 return (
                   <article key={index} className="space-y-3 rounded-lg bg-muted/30 p-4">
                     <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">

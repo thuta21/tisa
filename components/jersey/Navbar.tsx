@@ -28,6 +28,7 @@ export default function Navbar() {
       <nav className="hidden md:flex gap-10 text-xs tracking-[0.15em] uppercase text-muted-foreground font-medium justify-self-center">
         <Link href="/" className="hover:text-primary transition-colors duration-300">Showroom</Link>
         <Link href="/shop" className="hover:text-primary transition-colors duration-300">Roster</Link>
+        <Link href="/pricelists" className="hover:text-primary transition-colors duration-300">Pricelists</Link>
         <Link href="/fonts" className="hover:text-primary transition-colors duration-300">Fonts</Link>
         <Link href="/contact" className="hover:text-primary transition-colors duration-300">Contact</Link>
       </nav>
@@ -60,6 +61,7 @@ export default function Navbar() {
         <div className="absolute top-full left-0 right-0 bg-background/95 backdrop-blur-xl border-b border-border p-6 flex flex-col gap-4 md:hidden">
           <Link href="/" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Showroom</Link>
           <Link href="/shop" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Roster</Link>
+          <Link href="/pricelists" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Pricelists</Link>
           <Link href="/fonts" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Fonts</Link>
           <Link href="/contact" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Contact</Link>
         </div>
