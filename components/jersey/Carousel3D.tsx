@@ -32,7 +32,6 @@ export default function Carousel3D({
     ? selectedKits[current.id] ?? getFirstAvailableKit(current)
     : "home";
   const selectedPrice = current ? getJerseyKitPrice(current, selectedKit) : 0;
-  const backgroundTextColor = currentColors[0] === "#ffffff" ? (currentColors[2] ?? currentColors[1]) : currentColors[0];
 
   const next = useCallback(() => {
     playClickSFX(350);
@@ -69,9 +68,9 @@ export default function Carousel3D({
     if (diff < -total / 2) diff += total;
 
     const absD = Math.abs(diff);
-    const x = diff * 285;
-    const z = -absD * 150;
-    const rotY = diff * -20;
+    const x = diff * 370;
+    const z = -absD * 180;
+    const rotY = diff * -18;
     const opacity = absD === 0 ? 1 : absD === 1 ? 0.62 : 0.28;
     const scale = absD === 0 ? 1 : absD === 1 ? 0.82 : 0.66;
     const zIndex = total - absD;
@@ -86,53 +85,18 @@ export default function Carousel3D({
 
   return (
     <div className="relative w-full flex flex-col items-center">
-      <div
-        className="absolute inset-x-0 top-0 h-[300px] pointer-events-none opacity-45 blur-2xl md:h-[420px]"
-        style={{
-          background: `radial-gradient(circle at 50% 30%, ${currentColors[1]}33 0%, transparent 28%), radial-gradient(circle at 25% 45%, ${currentColors[0]}26 0%, transparent 34%), radial-gradient(circle at 75% 48%, ${(currentColors[2] ?? currentColors[0])}24 0%, transparent 32%)`,
-        }}
-      />
-      {/* Dynamic Background Text */}
-      <div className="absolute inset-x-0 top-[38%] -translate-y-1/2 flex justify-center pointer-events-none z-0 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_30%,black_66%,transparent)]">
-        <AnimatePresence mode="wait">
-          <motion.h1
-            key={current?.team}
-            initial={{ opacity: 0, scale: 0.9, filter: "blur(20px)" }}
-            animate={{ opacity: 0.09, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 1.05, filter: "blur(20px)" }}
-            transition={{ duration: 0.8 }}
-            className="text-[13vw] font-black uppercase text-center tracking-normal font-display whitespace-nowrap"
-            style={{
-              color: backgroundTextColor,
-              textShadow: `0 18px 80px ${backgroundTextColor}55`,
-            }}
-          >
-            {current?.team}
-          </motion.h1>
-        </AnimatePresence>
-      </div>
-
       {/* 3D Carousel Container */}
       <div
-        className="relative mx-auto flex h-[290px] w-full max-w-5xl items-center justify-center sm:h-[320px] md:h-[380px]"
-        style={{ perspective: "1200px" }}
+        className="relative mx-auto flex h-[350px] w-full max-w-6xl items-center justify-center sm:h-[400px] md:h-[500px] lg:h-[540px]"
+        style={{ perspective: "1400px" }}
       >
-        {/* Floor Grid */}
-        <div
-          className="absolute h-[360px] w-[360px] rounded-full border border-primary/5 pointer-events-none md:h-[500px] md:w-[500px]"
-          style={{
-            background: `radial-gradient(circle, ${currentColors[1]}1f 0%, ${currentColors[0]}12 42%, transparent 70%)`,
-            transform: "rotateX(85deg) translateY(180px)",
-          }}
-        />
-
         {jerseys.map((jersey, index) => (
           <div
             key={jersey.id}
             className="absolute transition-all duration-700 ease-out"
             style={{
-              width: "min(82vw, 300px)",
-              height: "min(78vw, 330px)",
+              width: "min(84vw, 410px)",
+              height: "min(92vw, 470px)",
               ...getCardStyle(index),
             }}
           >
@@ -153,7 +117,7 @@ export default function Carousel3D({
         ))}
       </div>
 
-      <div className="relative z-30 mt-0 flex items-center justify-center gap-1 rounded-full border border-border/60 bg-background/70 p-1 shadow-sm backdrop-blur-md sm:gap-2">
+      <div className="relative z-30 mt-0 flex w-[calc(100%-2.5rem)] max-w-md items-stretch justify-center gap-1 rounded-2xl border border-border/60 bg-background p-1 shadow-sm sm:gap-2">
         {kitOptions.map((kit) => {
           const available = current ? isJerseyKitAvailable(current, kit.id) : false;
 
@@ -167,7 +131,7 @@ export default function Carousel3D({
               }}
               disabled={!available}
               aria-disabled={!available}
-              className={`relative h-8 overflow-hidden rounded-full px-3 text-[9px] font-semibold uppercase tracking-[0.1em] transition-colors sm:h-9 sm:px-4 sm:text-[10px] ${
+              className={`relative min-h-11 flex-1 overflow-hidden rounded-xl px-2 text-xs font-semibold transition-colors sm:px-4 ${
                 selectedKit === kit.id
                   ? "text-primary-foreground"
                   : available
@@ -183,7 +147,7 @@ export default function Carousel3D({
                 />
               )}
               <span
-                className="relative z-10 mr-1.5 inline-block h-1.5 w-4 rounded-full align-middle"
+                className="relative z-10 mr-1.5 inline-block h-1.5 w-3 rounded-full align-middle"
                 style={{
                   background:
                     kit.id === "home"
@@ -193,8 +157,8 @@ export default function Carousel3D({
                         : (currentColors[2] ?? currentColors[0]),
                 }}
               />
-              <span className="relative z-10">{kit.label}</span>
-              {!available && <span className="relative z-10 ml-1 hidden text-[8px] sm:inline">OOS</span>}
+              <span className="relative z-10">{kit.label.replace(" Kit", "")}</span>
+              {!available && <span className="relative z-10 block text-xs font-medium text-current opacity-75">Sold out</span>}
             </button>
           );
         })}
@@ -210,13 +174,13 @@ export default function Carousel3D({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.5 }}
           >
-            <span className="text-[9px] uppercase tracking-[0.25em] text-primary font-mono font-semibold sm:text-[10px]">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               {current?.collection}
             </span>
             <h2 className="text-[1.65rem] leading-tight md:text-4xl font-bold tracking-tight mt-0.5 font-display text-foreground">
               {current?.name}
             </h2>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-1 leading-relaxed max-w-md mx-auto font-body line-clamp-2">
+            <p className="mx-auto mt-1 max-w-md line-clamp-2 text-sm leading-6 text-muted-foreground">
               {current?.description}
             </p>
           </motion.div>
@@ -224,15 +188,15 @@ export default function Carousel3D({
       </div>
 
       {/* Controls */}
-      <div className="grid w-full max-w-4xl grid-cols-3 items-center gap-3 mx-auto mt-2.5 z-30 px-4">
+      <div className="z-30 mx-auto mt-3 grid w-full max-w-4xl grid-cols-[1fr_auto] items-center gap-3 px-5 md:grid-cols-3">
         <div className="justify-self-start text-left leading-none">
-          <span className="text-[9px] text-muted-foreground block uppercase tracking-[0.2em] font-mono">Premium Retail</span>
-          <span className="text-base font-bold text-primary font-display sm:text-xl">
-            {formatPriceAED(selectedPrice)}
+          <span className="mb-1 block text-xs text-muted-foreground">Selected kit</span>
+          <span className="price-display text-xl sm:text-2xl">
+            {selectedPrice > 0 ? formatPriceAED(selectedPrice) : "Price pending"}
           </span>
         </div>
 
-        <div className="col-start-2 flex items-center justify-center gap-4 md:gap-5">
+        <div className="order-3 col-span-2 mt-1 flex items-center justify-center gap-4 md:order-none md:col-span-1 md:col-start-2 md:row-start-1 md:mt-0 md:gap-5">
           <button
             onClick={prev}
             aria-label="Previous jersey"
@@ -266,10 +230,10 @@ export default function Carousel3D({
           </button>
         </div>
 
-        <div className="justify-self-end">
+        <div className="col-start-2 row-start-1 justify-self-end md:col-start-3">
           <button
             onClick={() => current && onSelect?.(current)}
-            className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[9px] uppercase tracking-[0.12em] rounded-full shadow-lg shadow-primary/10 transition-all hover:scale-105 active:scale-95 font-mono sm:px-6 sm:text-[10px]"
+            className="h-11 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90 active:scale-95 sm:px-6"
           >
             View Details
           </button>

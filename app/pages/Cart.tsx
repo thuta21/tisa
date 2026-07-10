@@ -16,7 +16,7 @@ import {
 } from "@/lib/jerseys";
 
 export default function Cart() {
-  const { items, hydrated, subtotal, updateQuantity, removeItem } = useCart();
+  const { items, hydrated, itemCount, subtotal, updateQuantity, removeItem } = useCart();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -25,10 +25,10 @@ export default function Cart() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 flex items-end justify-between gap-4 border-b border-border pb-6">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">Your selection</p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Kit Bag</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your selection</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Shopping bag</h1>
             </div>
-            <span className="text-sm text-muted-foreground">{items.length} {items.length === 1 ? "item" : "items"}</span>
+            <span className="text-sm text-muted-foreground">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
           </div>
 
           {!hydrated ? (
@@ -46,7 +46,7 @@ export default function Cart() {
                 Browse the roster and choose a kit, size, and quantity to get started.
               </p>
               <Link href="/shop" className="mt-7 rounded-full bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground">
-                Browse Roster
+                Browse jerseys
               </Link>
             </div>
           ) : (
@@ -58,7 +58,6 @@ export default function Cart() {
                   if (!isFont && !jersey && !item.productName) return null;
                   const kitLabel = isFont ? "Digital Font File" : (kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit);
                   const productName = item.productName ?? jersey?.name ?? "Jersey";
-                  const productCollection = item.variantName ?? jersey?.collection ?? "Supabase catalog";
                   const productHref = `/jersey/${item.productSlug ?? item.jerseyId}`;
                   const imageSrc = item.imageUrl ?? (jersey ? getJerseyKitImage(jersey, item.kit) : "/assets/tisa-shirt.png");
 
@@ -68,7 +67,7 @@ export default function Cart() {
                         {isFont ? (
                           <div className="flex flex-col items-center gap-1.5 text-muted-foreground p-3">
                             <span className="font-extrabold text-3xl font-display text-primary">Aa</span>
-                            <span className="text-[8px] uppercase tracking-wider font-mono">.TTF File</span>
+                            <span className="text-xs uppercase tracking-wider">.TTF File</span>
                           </div>
                         ) : (
                           <Link
@@ -89,8 +88,8 @@ export default function Cart() {
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {isFont ? "Font Shop" : productCollection}
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          {isFont ? "Name & number style" : "Jersey"}
                         </p>
                         {isFont ? (
                           <span className="mt-1 block truncate text-base font-bold text-foreground">
@@ -121,7 +120,7 @@ export default function Cart() {
                             {item.armBadgeFee ? ` (+${formatPriceAED(item.armBadgeFee)})` : ""}
                           </p>
                         )}
-                        <p className="mt-3 text-sm font-semibold sm:hidden">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
+                        <p className="price-display mt-3 text-xl sm:hidden">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
 
                         <div className="mt-4 flex items-center gap-3">
                           <div className="flex items-center rounded-full border border-border p-0.5">
@@ -137,7 +136,8 @@ export default function Cart() {
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.id, Math.min(10, item.quantity + 1))}
-                              className="flex size-8 items-center justify-center rounded-full hover:bg-muted"
+                              disabled={item.quantity >= (item.maxQuantity ?? 10)}
+                              className="flex size-8 items-center justify-center rounded-full hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
                               aria-label="Increase quantity"
                             >
                               <Plus size={13} />
@@ -155,8 +155,8 @@ export default function Cart() {
                       </div>
 
                       <div className="hidden text-right sm:block">
-                        <p className="text-sm font-bold">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">{formatPriceAED(item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0))} each</p>
+                        <p className="price-display text-xl">{formatPriceAED((item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0)) * item.quantity)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatPriceAED(item.unitPrice + (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0))} each</p>
                       </div>
                     </article>
                   );
@@ -172,12 +172,12 @@ export default function Cart() {
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <dt>Delivery</dt>
-                    <dd>Confirmed separately</dd>
+                    <dd>Confirmed after review</dd>
                   </div>
                 </dl>
                 <div className="mt-5 flex items-end justify-between border-t border-border pt-5">
-                  <span className="text-sm font-semibold">Total</span>
-                  <span className="text-xl font-bold">{formatPriceAED(subtotal)}</span>
+                  <span className="text-sm font-semibold">Current subtotal</span>
+                  <span className="price-display text-2xl">{formatPriceAED(subtotal)}</span>
                 </div>
                 <Link
                   href="/checkout"

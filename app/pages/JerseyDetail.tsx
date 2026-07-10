@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Minus, Plus, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, ClipboardCheck, Minus, Plus, RotateCcw, ShoppingBag, Truck } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
+import SizeGuideModal from "@/components/jersey/SizeGuideModal";
 import { useCart } from "@/lib/CartContext";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -50,6 +51,7 @@ export default function JerseyDetail({ id }: { id: string }) {
   const [added, setAdded] = useState(false);
   const [availableFonts, setAvailableFonts] = useState<DbFont[]>([]);
   const [selectedFontSlug, setSelectedFontSlug] = useState("");
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -143,6 +145,8 @@ export default function JerseyDetail({ id }: { id: string }) {
   const kitImage = getJerseyKitImage(jersey, selectedKit);
   const selectedKitData = jersey.kits[selectedKit] as CatalogJerseyKit;
   const selectedKitSizes = selectedKitData.sizes;
+  const selectedSizeStock = selectedSize ? (selectedKitData.stockBySize[selectedSize] ?? 0) : selectedKitData.stock;
+  const maximumQuantity = Math.min(10, selectedSizeStock);
   const displayImage = activeImage === "front" ? kitImage : (selectedKitData.imageBack || jersey.image_back || kitImage);
   const imageFilter = `drop-shadow(0 25px 40px rgba(0,0,0,0.34)) ${kitImageFilters[selectedKit]}`;
   const selectedPrice = getJerseyKitPrice(jersey, selectedKit);
@@ -155,7 +159,7 @@ export default function JerseyDetail({ id }: { id: string }) {
   const customizationPreviewText = `${customName.trim() || "PLAYER"} ${customNumber.trim() || "10"}`;
 
   const handleAddToCart = () => {
-    if (!selectedSize || !selectedKitData.variantId) return;
+    if (!selectedSize || !selectedKitData.variantId || selectedSizeStock < 1 || selectedPrice <= 0) return;
     addItem({
       jerseyId: jersey.id,
       productId: jersey.productId,
@@ -167,6 +171,7 @@ export default function JerseyDetail({ id }: { id: string }) {
       kit: selectedKit,
       size: selectedSize,
       quantity,
+      maxQuantity: selectedSizeStock,
       unitPrice: selectedPrice,
       customName: customName.trim() || undefined,
       customNumber: customNumber.trim() || undefined,
@@ -183,13 +188,13 @@ export default function JerseyDetail({ id }: { id: string }) {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
 
-      <main className="flex-1 pt-24 pb-10">
-        <div className="max-w-7xl mx-auto px-6">
+      <main className="flex-1 pb-28 pt-24 sm:pt-28 lg:pb-14">
+        <div className="max-w-7xl mx-auto px-5 sm:px-6">
           {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-mono text-muted-foreground mb-6">
+          <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">Home</Link>
             <ChevronRight size={10} />
-            <Link href="/shop" className="hover:text-primary transition-colors">Roster</Link>
+            <Link href="/shop" className="hover:text-primary transition-colors">Shop</Link>
             <ChevronRight size={10} />
             <span className="text-foreground">{jersey.name}</span>
           </div>
@@ -222,6 +227,9 @@ export default function JerseyDetail({ id }: { id: string }) {
                     alt={jersey.name}
                     className="h-full w-full object-contain select-none"
                     style={{ filter: imageFilter }}
+                    onError={(event) => {
+                      event.currentTarget.src = "/assets/tisa-shirt.png";
+                    }}
                   />
                   {activeImage === "back" && (customName.trim() || customNumber.trim()) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
@@ -236,7 +244,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                 </div>
               </div>
 
-              <div className="mt-2 flex items-center justify-center gap-1 rounded-full border border-border/60 bg-background/80 p-1 shadow-sm">
+              <div className="mt-2 grid grid-cols-3 gap-1 rounded-2xl border border-border/60 bg-background p-1 shadow-sm">
                 {kitOptions.map((kit) => {
                   const available = isJerseyKitAvailable(jersey, kit.id);
                   const stock = (jersey.kits[kit.id] as CatalogJerseyKit).stock;
@@ -253,7 +261,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                       }}
                         disabled={!available}
                         aria-disabled={!available}
-                        className={`relative h-8 flex-1 overflow-hidden rounded-full px-2 text-[9px] font-semibold uppercase tracking-[0.1em] transition-colors sm:text-[10px] ${
+                        className={`relative min-h-12 overflow-hidden rounded-xl px-2 py-1 text-sm font-medium transition-colors ${
                           selectedKit === kit.id
                             ? "text-primary-foreground"
                             : available
@@ -268,9 +276,9 @@ export default function JerseyDetail({ id }: { id: string }) {
                             transition={{ type: "spring", stiffness: 420, damping: 34 }}
                           />
                         )}
-                        <span className="relative z-10">{kit.label}</span>
-                        {!available && <span className="relative z-10 ml-1 hidden text-[8px] sm:inline">OOS</span>}
-                        {available && stock <= 3 && <span className="relative z-10 ml-1 hidden text-[8px] sm:inline">LOW</span>}
+                        <span className="relative z-10 block">{kit.label.replace(" Kit", "")}</span>
+                        {!available && <span className="relative z-10 block text-xs font-normal normal-case tracking-normal opacity-75">Sold out</span>}
+                        {available && stock <= 3 && <span className="relative z-10 block text-xs font-normal normal-case tracking-normal opacity-75">Only {stock} left</span>}
                       </button>
                     );
                   })}
@@ -281,7 +289,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                   <button
                     key={side}
                     onClick={() => setActiveImage(side)}
-                    className={`flex-1 py-2 rounded-lg text-[10px] uppercase tracking-[0.12em] font-mono border transition-all ${
+                    className={`min-h-10 flex-1 rounded-lg border text-sm font-medium transition-all ${
                       activeImage === side
                         ? "bg-primary text-primary-foreground border-primary"
                         : "border-border text-muted-foreground hover:border-primary/50"
@@ -300,44 +308,46 @@ export default function JerseyDetail({ id }: { id: string }) {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="flex flex-col"
             >
-              <span className="text-[10px] uppercase tracking-[0.3em] text-primary font-mono font-semibold">
+              <span className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
                 {jersey.collection}
               </span>
-              <h1 className="text-3xl md:text-4xl font-black font-display tracking-tight mt-2">
+              <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
                 {jersey.name}
               </h1>
-              <p className="text-muted-foreground text-sm leading-relaxed mt-3 font-body">
+              <p className="mt-3 text-base leading-7 text-muted-foreground">
                 {jersey.description}
               </p>
 
-              <div className="flex items-baseline gap-3 mt-5">
-                <span className="text-3xl font-bold text-primary font-display">{formatPriceAED(lineItemUnitPrice)}</span>
+              <div className="mt-6 flex items-baseline gap-3">
+                <span className="price-display text-4xl sm:text-5xl">{selectedPrice > 0 ? formatPriceAED(lineItemUnitPrice) : "Price pending"}</span>
+                {selectedSize && selectedSizeStock > 0 && selectedSizeStock <= 3 && <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Only {selectedSizeStock} left in {selectedSize}</span>}
               </div>
 
               {/* Technical Specs */}
               <div className="mt-5 grid grid-cols-2 gap-3">
                 {specs.map((spec) => (
-                  <div key={spec.label} className="p-3 bg-card border border-border rounded-lg">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-mono block">{spec.label}</span>
-                    <span className="text-sm font-semibold font-mono mt-0.5 block text-foreground">{spec.value}</span>
+                  <div key={spec.label} className="rounded-xl border border-border bg-card p-3.5">
+                    <span className="block text-xs font-medium text-muted-foreground">{spec.label}</span>
+                    <span className="mt-1 block text-base font-semibold text-foreground">{spec.value}</span>
                   </div>
                 ))}
               </div>
 
               <div className="mt-6 border-t border-border pt-5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">Select size</h3>
-                  <Link href="/contact" className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground underline underline-offset-4 hover:text-foreground">
-                    Sizing help
-                  </Link>
+                  <h3 className="text-base font-semibold text-foreground">Select your size</h3>
+                  <button type="button" onClick={() => setSizeGuideOpen(true)} className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Size guide</button>
                 </div>
-                <div className="mt-3 grid grid-cols-5 gap-2">
+                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5">
                   {selectedKitSizes.map((size) => (
                     <button
                       key={size}
                       type="button"
-                      onClick={() => setSelectedSize(size)}
-                      className={`h-10 rounded-lg border text-xs font-semibold transition-colors ${
+                      onClick={() => {
+                        setSelectedSize(size);
+                        setQuantity(1);
+                      }}
+                      className={`h-11 rounded-lg border text-base font-semibold transition-colors ${
                         selectedSize === size
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border hover:border-primary/50"
@@ -347,15 +357,19 @@ export default function JerseyDetail({ id }: { id: string }) {
                     </button>
                   ))}
                   {selectedKitSizes.length === 0 && (
-                    <p className="col-span-5 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-muted-foreground">
+                    <p className="col-span-4 rounded-lg border border-dashed border-border px-4 py-3 text-center text-sm text-muted-foreground sm:col-span-5">
                       This kit is currently out of stock.
                     </p>
                   )}
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Shirt name <span className="normal-case tracking-normal">(optional, +{formatPriceAED(prices.customization)})</span>
+                <div className="mt-5 flex items-end justify-between gap-3">
+                  <div><h3 className="text-base font-semibold">Name & number</h3><p className="mt-0.5 text-sm text-muted-foreground">Optional · {formatPriceAED(prices.customization)} total when either field is used</p></div>
+                  <Link href="/fonts" className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">View styles</Link>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+                    Shirt name
                     <input
                       value={customName}
                       onChange={(event) => setCustomName(event.target.value.slice(0, 12).toUpperCase())}
@@ -363,8 +377,8 @@ export default function JerseyDetail({ id }: { id: string }) {
                       className="h-10 rounded-lg border border-border bg-background px-3 text-sm uppercase tracking-normal text-foreground outline-none focus:border-primary"
                     />
                   </label>
-                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Number <span className="normal-case tracking-normal">(optional, +{formatPriceAED(prices.customization)})</span>
+                  <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+                    Number
                     <input
                       value={customNumber}
                       onChange={(event) => setCustomNumber(event.target.value.replace(/\D/g, "").slice(0, 2))}
@@ -376,8 +390,8 @@ export default function JerseyDetail({ id }: { id: string }) {
                 </div>
 
                 <div className="mt-4">
-                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Font style <span className="normal-case tracking-normal">(secure preview)</span>
+                  <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+                    Font style
                     <select
                       value={selectedFontSlug}
                       onChange={(event) => setSelectedFontSlug(event.target.value)}
@@ -397,7 +411,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                 </div>
 
                 <div className="mt-4">
-                  <label className="grid gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
                     Arm badge <span className="normal-case tracking-normal">(optional)</span>
                     <select
                       value={selectedBadge}
@@ -411,8 +425,8 @@ export default function JerseyDetail({ id }: { id: string }) {
                   </label>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em]">Quantity</span>
+                <div className="mt-5 flex items-center justify-between">
+                  <span className="text-base font-semibold">Quantity</span>
                   <div className="flex items-center rounded-full border border-border p-1">
                     <button
                       type="button"
@@ -425,8 +439,8 @@ export default function JerseyDetail({ id }: { id: string }) {
                     <span className="w-9 text-center text-sm font-semibold">{quantity}</span>
                     <button
                       type="button"
-                      onClick={() => setQuantity((current) => Math.min(10, selectedKitData.stock, current + 1))}
-                      disabled={quantity >= Math.min(10, Math.max(1, selectedKitData.stock))}
+                      onClick={() => setQuantity((current) => Math.min(maximumQuantity, current + 1))}
+                      disabled={!selectedSize || maximumQuantity < 1 || quantity >= maximumQuantity}
                       className="flex size-8 items-center justify-center rounded-full hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
                       aria-label="Increase quantity"
                     >
@@ -441,11 +455,11 @@ export default function JerseyDetail({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={!selectedSize || !selectedKitData.variantId || selectedKitData.stock < 1}
+                  disabled={!selectedSize || !selectedKitData.variantId || selectedKitData.stock < 1 || selectedPrice <= 0}
                   className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   {added ? <Check size={15} /> : <ShoppingBag size={15} />}
-                  {added ? "Added to Bag" : `Add to Bag - ${formatPriceAED(lineItemUnitPrice * quantity)}`}
+                  {added ? "Added to bag" : selectedKitData.stock < 1 ? "Sold out" : selectedPrice <= 0 ? "Price pending" : !selectedSize ? "Select a size" : `Add to bag · ${formatPriceAED(lineItemUnitPrice * quantity)}`}
                 </button>
                 <Link
                   href="/cart"
@@ -456,14 +470,29 @@ export default function JerseyDetail({ id }: { id: string }) {
                 </Link>
               </div>
 
-              <Link href="/shop" className="flex items-center gap-2 text-muted-foreground hover:text-primary text-xs font-mono mt-5 transition-colors">
+              <div className="mt-5 divide-y divide-border rounded-2xl border border-border bg-card/50 px-4">
+                <Link href="/customer-care#delivery" className="flex items-center gap-3 py-4"><Truck size={18} className="shrink-0 text-primary" /><div><p className="text-sm font-semibold">Delivery reviewed before fulfilment</p><p className="mt-0.5 text-xs text-muted-foreground">Fee and timing are confirmed with the order.</p></div><ChevronRight size={15} className="ml-auto text-muted-foreground" /></Link>
+                <Link href="/customer-care#exchanges" className="flex items-center gap-3 py-4"><RotateCcw size={18} className="shrink-0 text-primary" /><div><p className="text-sm font-semibold">Check exchange eligibility</p><p className="mt-0.5 text-xs text-muted-foreground">Confirm the size before adding customization.</p></div><ChevronRight size={15} className="ml-auto text-muted-foreground" /></Link>
+                <Link href="/customer-care#payment" className="flex items-center gap-3 py-4"><ClipboardCheck size={18} className="shrink-0 text-primary" /><div><p className="text-sm font-semibold">Payment information</p><p className="mt-0.5 text-xs text-muted-foreground">Active methods appear during checkout.</p></div><ChevronRight size={15} className="ml-auto text-muted-foreground" /></Link>
+              </div>
+
+              <Link href="/shop" className="mt-5 flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary">
                 <ArrowLeft size={12} />
-                Back to Roster
+                Back to shop
               </Link>
             </motion.div>
           </div>
         </div>
       </main>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="min-w-0 flex-1"><p className="price-display truncate text-xl">{selectedPrice > 0 ? formatPriceAED(lineItemUnitPrice * quantity) : "Price pending"}</p><p className="truncate text-xs text-muted-foreground">{selectedSize ? `Size ${selectedSize} · ${quantity} selected` : "Choose a size to continue"}</p></div>
+          <button type="button" onClick={handleAddToCart} disabled={!selectedSize || !selectedKitData.variantId || selectedSizeStock < 1 || selectedPrice <= 0} className="inline-flex h-12 min-w-36 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{added ? <Check size={16} /> : <ShoppingBag size={16} />}{added ? "Added" : selectedKitData.stock < 1 ? "Sold out" : selectedPrice <= 0 ? "Price pending" : !selectedSize ? "Select size" : "Add to bag"}</button>
+        </div>
+      </div>
+
+      <SizeGuideModal open={sizeGuideOpen} onClose={() => setSizeGuideOpen(false)} availableSizes={selectedKitSizes} />
 
       <Footer />
     </div>

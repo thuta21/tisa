@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { getJerseyKitImage, kitImageFilters, type Jersey, type KitVariant } from "@/lib/jerseys";
 
@@ -19,7 +19,12 @@ export default function CarouselCard({
   const [tiltY, setTiltY] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const kitImage = getJerseyKitImage(jersey, selectedKit);
+  const [imageSrc, setImageSrc] = useState(kitImage);
   const imageFilter = `drop-shadow(0 20px 30px rgba(0,0,0,0.35)) ${kitImageFilters[selectedKit]}`;
+
+  useEffect(() => {
+    setImageSrc(kitImage);
+  }, [kitImage]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isActive || !cardRef.current) return;
@@ -59,12 +64,13 @@ export default function CarouselCard({
         >
           <div className="relative w-full h-full">
             <Image
-              src={kitImage}
+              src={imageSrc}
               alt={`${jersey.name} front`}
               fill
               sizes="300px"
               className="object-contain select-none pointer-events-none"
               style={{ filter: imageFilter }}
+              onError={() => setImageSrc("/assets/tisa-shirt.png")}
             />
           </div>
         </div>

@@ -130,17 +130,8 @@
 }
 
 @layer utilities {
-  body:not(:has([data-admin-page])) {
-    font-size: 14px;
-  }
-
-  body:not(:has([data-admin-page])) .text-\[9px\],
-  body:not(:has([data-admin-page])) .text-\[10px\],
-  body:not(:has([data-admin-page])) .text-xs,
-  body:not(:has([data-admin-page])) .text-sm,
-  body:not(:has([data-admin-page])) .text-base {
-    font-size: 14px;
-    line-height: 1.45rem;
+  .price-display {
+    @apply font-bold tracking-tight tabular-nums text-primary;
   }
 }
 

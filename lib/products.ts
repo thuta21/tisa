@@ -48,6 +48,7 @@ export type CatalogProduct = {
   country_colors: string[];
   featured: boolean;
   status: "draft" | "active" | "archived";
+  created_at?: string;
   leagues?: { id: string; name: string } | null;
   teams?: { id: string; name: string } | null;
   seasons?: { id: string; name: string } | null;
@@ -61,6 +62,7 @@ export type CatalogJerseyKit = JerseyKit & {
   imageBack?: string;
   stock: number;
   sizes: string[];
+  stockBySize: Record<string, number>;
 };
 
 export type CatalogJersey = Omit<Jersey, "kits"> & {
@@ -131,6 +133,7 @@ export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
   const kits = Object.fromEntries(kitOptions.map((kit) => {
     const variant = variants.find((item) => item.kit === kit.id);
     const stock = getVariantAvailableStock(variant);
+    const stockBySize = Object.fromEntries((variant?.inventory ?? []).map((row) => [row.size, getAvailableStock(row)]));
     const kitValue: CatalogJerseyKit = {
       image: getPublicProductImage(variant?.image_front_path ?? firstVariant?.image_front_path),
       imageBack: getPublicProductImage(variant?.image_back_path ?? variant?.image_front_path ?? firstVariant?.image_back_path ?? firstVariant?.image_front_path),
@@ -141,6 +144,7 @@ export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
       sku: variant?.sku,
       stock,
       sizes: getVariantAvailableSizes(variant),
+      stockBySize,
     };
     return [kit.id, kitValue];
   })) as Record<KitVariant, CatalogJerseyKit>;

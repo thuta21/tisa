@@ -54,17 +54,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (existing) {
           return current.map((entry) =>
             entry.id === id
-              ? { ...entry, quantity: entry.quantity + item.quantity }
+              ? { ...entry, maxQuantity: item.maxQuantity ?? entry.maxQuantity, quantity: Math.min(item.maxQuantity ?? entry.maxQuantity ?? 10, entry.quantity + item.quantity) }
               : entry,
           );
         }
-        return [...current, { ...item, id }];
+        return [...current, { ...item, id, quantity: Math.min(item.maxQuantity ?? 10, item.quantity) }];
       });
     },
     updateQuantity: (id, quantity) => {
       if (quantity < 1) return;
       setItems((current) => current.map((item) => (
-        item.id === id ? { ...item, quantity } : item
+        item.id === id ? { ...item, quantity: Math.min(item.maxQuantity ?? 10, quantity) } : item
       )));
     },
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),

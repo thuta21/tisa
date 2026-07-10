@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,7 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  Download,
   Edit3,
   Eye,
   LayoutDashboard,
@@ -34,10 +35,19 @@ import {
   Truck,
   Trophy,
   Type,
+  Upload,
   X,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type DbFont } from "@/lib/jerseys";
+import {
+  downloadProductImportTemplate,
+  parseProductImportFile,
+  productImportKits,
+  type ProductImportPreview,
+  type ProductImportReference,
+  type ProductImportRow,
+} from "@/lib/product-import";
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
@@ -519,6 +529,14 @@ function toNumber(value: string, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function normalizeLookupValue(value: string) {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
 function splitCsv(value: string) {
   return value
     .split(",")
@@ -820,9 +838,14 @@ export default function AdminDashboard() {
   const [editingSetting, setEditingSetting] = useState<SettingFormState | null>(null);
   const [editingPaymentMethod, setEditingPaymentMethod] = useState<PaymentMethodFormState | null>(null);
   const [editingProduct, setEditingProduct] = useState<ProductFormState | null>(null);
+  const [productImportPreview, setProductImportPreview] = useState<ProductImportPreview | null>(null);
+  const [productImportFileName, setProductImportFileName] = useState("");
+  const [parsingProductImport, setParsingProductImport] = useState(false);
+  const [importingProducts, setImportingProducts] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderFormState | null>(null);
   const [viewingOrder, setViewingOrder] = useState<DbOrder | null>(null);
   const [printingOrder, setPrintingOrder] = useState<DbOrder | null>(null);
+  const productImportInputRef = useRef<HTMLInputElement | null>(null);
 
   // Fonts state variables
   const [fontsList, setFontsList] = useState<DbFont[]>([]);
@@ -941,6 +964,13 @@ export default function AdminDashboard() {
       mounted = false;
     };
   }, [loadAdminData, router]);
+
+  const productImportReference = useMemo<ProductImportReference>(() => ({
+    leagues,
+    teams,
+    seasons,
+    sizes,
+  }), [leagues, teams, seasons, sizes]);
 
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient();
@@ -1525,7 +1555,7 @@ export default function AdminDashboard() {
     await loadAdminData();
   };
 
-  const saveProduct = async (form: ProductFormState) => {
+  const persistProductForm = async (form: ProductFormState) => {
     const supabase = createSupabaseBrowserClient();
     const slug = form.slug.trim() || slugify(form.name);
     const basePrice = toNumber(form.base_price);
@@ -1536,8 +1566,7 @@ export default function AdminDashboard() {
     const inventorySizes = selectedSizes.length ? selectedSizes.map((size) => size.label) : splitCsv(defaultSizes);
 
     if (!slug || !form.name.trim() || !selectedTeam || !selectedLeague || !selectedSeason) {
-      setActionMessage("Product name, league, team, and season are required.");
-      return;
+      throw new Error("Product name, league, team, and season are required.");
     }
 
     const payload = {
@@ -1567,8 +1596,7 @@ export default function AdminDashboard() {
       : await supabase.from("products").insert(payload).select("id").single();
 
     if (productResult.error || !productResult.data) {
-      setActionMessage(productResult.error?.message ?? "Failed to save product.");
-      return;
+      throw new Error(productResult.error?.message ?? "Failed to save product.");
     }
 
     const productId = productResult.data.id as string;
@@ -1593,8 +1621,7 @@ export default function AdminDashboard() {
         : await supabase.from("product_variants").insert(variantPayload).select("id").single();
 
       if (variantResult.error || !variantResult.data) {
-        setActionMessage(variantResult.error?.message ?? `Failed to save ${kit.label}.`);
-        return;
+        throw new Error(variantResult.error?.message ?? `Failed to save ${kit.label}.`);
       }
 
       const variantId = variantResult.data.id as string;
@@ -1618,8 +1645,7 @@ export default function AdminDashboard() {
           .from("inventory")
           .upsert(inventoryRows, { onConflict: "variant_id,size" });
         if (inventoryResult.error) {
-          setActionMessage(inventoryResult.error.message);
-          return;
+          throw new Error(inventoryResult.error.message);
         }
       }
 
@@ -1634,15 +1660,144 @@ export default function AdminDashboard() {
           .eq("variant_id", variantId)
           .in("size", removedSizes);
         if (inactiveResult.error) {
-          setActionMessage(inactiveResult.error.message);
-          return;
+          throw new Error(inactiveResult.error.message);
         }
       }
     }
 
-    setEditingProduct(null);
-    setActionMessage("Product saved.");
+    return productId;
+  };
+
+  const saveProduct = async (form: ProductFormState) => {
+    try {
+      await persistProductForm(form);
+      setEditingProduct(null);
+      await loadAdminData();
+      setActionMessage("Product saved.");
+    } catch (error) {
+      setActionMessage(getErrorMessage(error));
+    }
+  };
+
+  const productImportRowToForm = (row: ProductImportRow): ProductFormState => {
+    const selectedLeague = leagues.find((league) => normalizeLookupValue(league.name) === normalizeLookupValue(row.leagueName));
+    const selectedTeam = selectedLeague
+      ? teams.find((team) => (
+        normalizeLookupValue(team.name) === normalizeLookupValue(row.teamName)
+        && team.league_id === selectedLeague.id
+      ))
+      : null;
+    const selectedSeason = seasons.find((season) => normalizeLookupValue(season.name) === normalizeLookupValue(row.seasonName));
+
+    if (!selectedLeague || !selectedTeam || !selectedSeason) {
+      throw new Error("Import row references a missing league, team, or season.");
+    }
+
+    const existingProduct = row.existingProductId
+      ? products.find((product) => product.id === row.existingProductId) ?? null
+      : null;
+    const baseForm = existingProduct ? productToForm(existingProduct, sizes) : createEmptyProductForm(sizes);
+    const selectedSizes = sortByOrder(sizes);
+    const variants = { ...baseForm.variants };
+
+    for (const kit of productImportKits) {
+      const importVariant = row.variants[kit];
+      const currentVariant = baseForm.variants[kit];
+      const stockBySize = Object.fromEntries(
+        selectedSizes.map((size) => [size.label, String(importVariant.stockBySize[size.label] ?? 0)]),
+      );
+      const kitLabel = kitOptions.find((option) => option.id === kit)?.label ?? currentVariant.name;
+
+      variants[kit] = {
+        ...currentVariant,
+        kit,
+        name: importVariant.name || currentVariant.name || kitLabel,
+        sku: importVariant.sku || (existingProduct ? currentVariant.sku : ""),
+        price: String(importVariant.price ?? row.basePrice),
+        image_front_path: importVariant.image_front_path || (existingProduct ? currentVariant.image_front_path : ""),
+        image_back_path: importVariant.image_back_path || (existingProduct ? currentVariant.image_back_path : ""),
+        image_arm_path: importVariant.image_arm_path || (existingProduct ? currentVariant.image_arm_path : ""),
+        available: importVariant.available,
+        stockBySize,
+      };
+    }
+
+    return {
+      ...baseForm,
+      slug: row.slug,
+      name: row.name,
+      league_id: selectedLeague.id,
+      team_id: selectedTeam.id,
+      season_id: selectedSeason.id,
+      team: selectedTeam.name,
+      category: selectedLeague.name,
+      collection: row.collection,
+      description: row.description,
+      base_price: String(row.basePrice),
+      season: selectedSeason.name,
+      fabric: row.fabric || baseForm.fabric,
+      country_colors: row.countryColors || baseForm.country_colors,
+      featured: row.featured,
+      status: row.status,
+      size_ids: selectedSizes.map((size) => size.id),
+      variants,
+    };
+  };
+
+  const handleDownloadProductTemplate = async () => {
+    setActionMessage("");
+    try {
+      await downloadProductImportTemplate(productImportReference);
+      setActionMessage("Product import template downloaded.");
+    } catch (error) {
+      setActionMessage(`Template download failed: ${getErrorMessage(error)}`);
+    }
+  };
+
+  const handleProductImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setActionMessage("");
+    setParsingProductImport(true);
+    try {
+      const preview = await parseProductImportFile(file, productImportReference, products);
+      setProductImportFileName(file.name);
+      setProductImportPreview(preview);
+      setActiveTab("products");
+    } catch (error) {
+      setActionMessage(`Import file could not be read: ${getErrorMessage(error)}`);
+    } finally {
+      setParsingProductImport(false);
+    }
+  };
+
+  const handleConfirmProductImport = async () => {
+    if (!productImportPreview || productImportPreview.issues.length > 0 || productImportPreview.rows.length === 0) return;
+
+    setImportingProducts(true);
+    let importedCount = 0;
+    let updatedCount = 0;
+
+    for (const row of productImportPreview.rows) {
+      try {
+        await persistProductForm(productImportRowToForm(row));
+        importedCount += 1;
+        if (row.existingProductId) updatedCount += 1;
+      } catch (error) {
+        await loadAdminData();
+        setActionMessage(`Import stopped on row ${row.rowNumber}: ${getErrorMessage(error)}`);
+        setImportingProducts(false);
+        return;
+      }
+    }
+
+    setProductImportPreview(null);
+    setProductImportFileName("");
     await loadAdminData();
+    setActionMessage(`Imported ${importedCount} products, updated ${updatedCount} existing products.`);
+    setImportingProducts(false);
   };
 
   const deleteProduct = async (product: DbProduct) => {
@@ -2194,7 +2349,38 @@ export default function AdminDashboard() {
                   <MetricCard label="Out of stock kits" value={outOfStockKits.toString()} icon={AlertTriangle} attention={outOfStockKits > 0} />
                   <MetricCard label="Ready variants" value={readyVariants.toString()} icon={PackageCheck} />
                 </div>
-                <ProductsPanel rows={productRows} sizes={sizes} onEdit={setEditingProduct} onDelete={deleteProduct} />
+                <ProductsPanel
+                  rows={productRows}
+                  sizes={sizes}
+                  onEdit={setEditingProduct}
+                  onDelete={deleteProduct}
+                  actions={(
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        ref={productImportInputRef}
+                        type="file"
+                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        className="hidden"
+                        onChange={handleProductImportFile}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDownloadProductTemplate}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground hover:border-primary/50"
+                      >
+                        <Download size={13} /> Download Template
+                      </button>
+                      <button
+                        type="button"
+                        disabled={parsingProductImport}
+                        onClick={() => productImportInputRef.current?.click()}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Upload size={13} /> {parsingProductImport ? "Reading..." : "Import Excel"}
+                      </button>
+                    </div>
+                  )}
+                />
               </section>
             )}
 
@@ -2470,6 +2656,19 @@ export default function AdminDashboard() {
         )}
       </main>
 
+      {productImportPreview && (
+        <ProductImportReviewModal
+          preview={productImportPreview}
+          fileName={productImportFileName}
+          importing={importingProducts}
+          onClose={() => {
+            if (importingProducts) return;
+            setProductImportPreview(null);
+            setProductImportFileName("");
+          }}
+          onImport={handleConfirmProductImport}
+        />
+      )}
       {editingProduct && (
         <ProductEditor
           form={editingProduct}
@@ -2998,23 +3197,25 @@ function ProductsPanel({
   rows,
   sizes: availableSizes,
   compact,
+  actions,
   onEdit,
   onDelete,
 }: {
   rows: { product: DbProduct; stock: Record<KitVariant, number>; totalStock: number; sizes: string[] }[];
   sizes: DbJerseySize[];
   compact?: boolean;
+  actions?: React.ReactNode;
   onEdit: (form: ProductFormState) => void;
   onDelete: (product: DbProduct) => void;
 }) {
   return (
     <section className="rounded-xl border border-border bg-background">
-      <div className="flex items-center justify-between gap-3 border-b border-border p-5">
+      <div className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Products</p>
           <h2 className="mt-1 text-lg font-bold">Jersey stock</h2>
         </div>
-        {compact && <ChevronRight size={18} className="text-muted-foreground" />}
+        {actions ?? (compact && <ChevronRight size={18} className="text-muted-foreground" />)}
       </div>
       <div className="divide-y divide-border">
         {rows.length === 0 ? (
@@ -3068,6 +3269,147 @@ function ProductsPanel({
         })}
       </div>
     </section>
+  );
+}
+
+function ProductImportReviewModal({
+  preview,
+  fileName,
+  importing,
+  onClose,
+  onImport,
+}: {
+  preview: ProductImportPreview;
+  fileName: string;
+  importing: boolean;
+  onClose: () => void;
+  onImport: () => void;
+}) {
+  const hasIssues = preview.issues.length > 0;
+  const canImport = !hasIssues && preview.rows.length > 0 && !importing;
+  const sampleRows = preview.rows.slice(0, 6);
+
+  return (
+    <div className="fixed inset-0 z-[75] bg-black/45 p-4 backdrop-blur-sm">
+      <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-background shadow-xl">
+        <div className="flex items-center justify-between gap-4 border-b border-border p-5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Product Import</p>
+            <h2 className="mt-1 truncate text-xl font-bold">{fileName || "Excel review"}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={importing}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <ImportStat label="Rows" value={preview.totalRows.toString()} />
+            <ImportStat label="Valid" value={preview.validRows.toString()} />
+            <ImportStat label="New" value={preview.createCount.toString()} />
+            <ImportStat label="Updates" value={preview.updateCount.toString()} />
+            <ImportStat label="Errors" value={preview.issues.length.toString()} attention={hasIssues} />
+          </div>
+
+          {hasIssues ? (
+            <section className="mt-5 rounded-xl border border-destructive/25 bg-destructive/5">
+              <div className="border-b border-destructive/20 px-4 py-3">
+                <h3 className="text-sm font-bold text-destructive">Fix these rows before importing</h3>
+              </div>
+              <div className="divide-y divide-destructive/10">
+                {preview.issues.slice(0, 14).map((issue, index) => (
+                  <div key={`${issue.rowNumber}-${issue.field}-${index}`} className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[120px_160px_minmax(0,1fr)]">
+                    <span className="font-bold text-destructive">Row {issue.rowNumber}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{issue.field}</span>
+                    <span className="text-foreground">{issue.message}</span>
+                  </div>
+                ))}
+              </div>
+              {preview.issues.length > 14 && (
+                <p className="border-t border-destructive/20 px-4 py-3 text-xs text-muted-foreground">
+                  {preview.issues.length - 14} more issues hidden.
+                </p>
+              )}
+            </section>
+          ) : (
+            <section className="mt-5 overflow-hidden rounded-xl border border-border">
+              <div className="border-b border-border bg-muted/30 px-4 py-3">
+                <h3 className="font-bold">Ready to import</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Review the first rows before saving them to Supabase.</p>
+              </div>
+              {sampleRows.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">No product rows found in the workbook.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                        <th className="px-4 py-3">Row</th>
+                        <th className="px-4 py-3">Product</th>
+                        <th className="px-4 py-3">League</th>
+                        <th className="px-4 py-3">Season</th>
+                        <th className="px-4 py-3">Mode</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {sampleRows.map((row) => (
+                        <tr key={row.rowNumber}>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.rowNumber}</td>
+                          <td className="px-4 py-3">
+                            <p className="font-bold">{row.name}</p>
+                            <p className="mt-0.5 font-mono text-xs text-muted-foreground">{row.slug}</p>
+                          </td>
+                          <td className="px-4 py-3">{row.leagueName}</td>
+                          <td className="px-4 py-3">{row.seasonName}</td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-full border border-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em]">
+                              {row.existingProductId ? `Update ${row.matchedBy}` : "Create"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-border p-5 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={importing}
+            className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onImport}
+            disabled={!canImport}
+            className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {importing ? "Importing..." : "Import Products"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportStat({ label, value, attention }: { label: string; value: string; attention?: boolean }) {
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${attention ? "border-destructive/25 bg-destructive/5" : "border-border bg-muted/20"}`}>
+      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <strong className={attention ? "mt-1 block text-xl text-destructive" : "mt-1 block text-xl text-foreground"}>{value}</strong>
+    </div>
   );
 }
 

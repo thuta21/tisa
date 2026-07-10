@@ -3,67 +3,93 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X, ShoppingBag } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Menu, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/lib/CartContext";
+
+const navItems = [
+  { href: "/", label: "Home" },
+  { href: "/shop", label: "Shop" },
+  { href: "/fonts", label: "Name & Number" },
+  { href: "/contact", label: "Contact" },
+];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
   const { itemCount } = useCart();
 
+  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-center px-6 py-4 md:grid-cols-[1fr_auto_1fr] md:px-10 bg-background/60 backdrop-blur-xl border-b border-border/30">
-      <Link href="/" className="flex items-center gap-3 justify-self-start">
-        <Image
-          src="/assets/tisa-logo.png"
-          alt="TISA logo"
-          width={36}
-          height={36}
-          className="rounded-lg object-cover"
-          priority
-        />
-        <span className="text-lg font-bold tracking-[0.2em] font-display text-primary">TISA</span>
-        {/* <span className="bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-[0.2em] font-mono text-primary">Arena</span> */}
-      </Link>
-
-      <nav className="hidden md:flex gap-10 text-xs tracking-[0.15em] uppercase text-muted-foreground font-medium justify-self-center">
-        <Link href="/" className="hover:text-primary transition-colors duration-300">Showroom</Link>
-        <Link href="/shop" className="hover:text-primary transition-colors duration-300">Roster</Link>
-        <Link href="/pricelists" className="hover:text-primary transition-colors duration-300">Pricelists</Link>
-        <Link href="/fonts" className="hover:text-primary transition-colors duration-300">Fonts</Link>
-        <Link href="/contact" className="hover:text-primary transition-colors duration-300">Contact</Link>
-      </nav>
-
-      <div className="flex items-center gap-3 justify-self-end">
-        <Link
-          href="/cart"
-          aria-label={`Shopping bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
-          className="relative w-10 h-10 rounded-full border border-border/60 text-muted-foreground hover:border-primary/60 flex items-center justify-center transition-all hover:text-primary"
-        >
-          <ShoppingBag size={16} />
-          {itemCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
-              {itemCount > 99 ? "99+" : itemCount}
-            </span>
-          )}
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center px-5 py-3 sm:px-6 md:grid-cols-[1fr_auto_1fr]">
+        <Link href="/" className="flex items-center gap-3 justify-self-start" aria-label="TISA home">
+          <Image
+            src="/assets/tisa-logo.png"
+            alt=""
+            width={36}
+            height={36}
+            className="rounded-lg object-cover"
+            priority
+          />
+          <span className="text-lg font-bold tracking-[0.16em] text-primary">TISA</span>
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          className="md:hidden w-10 h-10 rounded-full border border-border flex items-center justify-center"
-        >
-          {open ? <X size={16} /> : <Menu size={16} />}
-        </button>
+
+        <nav aria-label="Primary navigation" className="hidden items-center gap-8 text-sm font-medium md:flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={`relative py-2 transition-colors ${isActive(item.href) ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {item.label}
+              {isActive(item.href) && <span className="absolute inset-x-0 -bottom-3 h-0.5 rounded-full bg-primary" />}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-3 justify-self-end">
+          <Link
+            href="/cart"
+            aria-label={`Shopping bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+            className="relative flex size-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+          >
+            <ShoppingBag size={17} />
+            {itemCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {itemCount > 99 ? "99+" : itemCount}
+              </span>
+            )}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            className="flex size-10 items-center justify-center rounded-full border border-border md:hidden"
+          >
+            {open ? <X size={17} /> : <Menu size={17} />}
+          </button>
+        </div>
       </div>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 bg-background/95 backdrop-blur-xl border-b border-border p-6 flex flex-col gap-4 md:hidden">
-          <Link href="/" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Showroom</Link>
-          <Link href="/shop" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Roster</Link>
-          <Link href="/pricelists" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Pricelists</Link>
-          <Link href="/fonts" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Fonts</Link>
-          <Link href="/contact" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase text-muted-foreground hover:text-primary transition-colors">Contact</Link>
+        <div className="absolute inset-x-0 top-full border-b border-border bg-background/95 shadow-lg backdrop-blur-xl md:hidden">
+          <nav aria-label="Mobile navigation" className="mx-auto flex max-w-7xl flex-col px-5 py-4 sm:px-6">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
+                onClick={() => setOpen(false)}
+                className={`rounded-lg px-3 py-3 text-base font-medium transition-colors ${isActive(item.href) ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       )}
     </header>

@@ -12,6 +12,7 @@ export type CartItem = {
   kit: KitVariant;
   size: string;
   quantity: number;
+  maxQuantity?: number;
   unitPrice: number;
   customName?: string;
   customNumber?: string;

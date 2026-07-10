@@ -81,13 +81,13 @@ export default function FontShop() {
       <Navbar />
 
       <main className="flex-1 pt-28 pb-16">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-5 sm:px-6">
           {/* Header */}
           <div className="mb-12">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">TISA Customization</p>
-            <h1 className="text-4xl md:text-6xl font-black font-display tracking-tight mt-1">Font Shop</h1>
-            <p className="text-muted-foreground mt-3 font-body max-w-xl">
-              Purchase premium team-specific fonts individually to use in your own sports designs and customization projects.
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">TISA customization</p>
+            <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">Name & Number Styles</h1>
+            <p className="mt-3 max-w-xl text-base leading-7 text-muted-foreground">
+              Preview team-specific print styles, test your own wording and add an available digital font file to your bag.
             </p>
           </div>
 
@@ -108,7 +108,7 @@ export default function FontShop() {
                     key={category}
                     type="button"
                     onClick={() => setActiveCategory(category)}
-                    className={`h-10 rounded-full border px-4 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                    className={`h-10 rounded-full border px-4 text-sm font-medium transition-colors ${
                       activeCategory === category
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
@@ -129,21 +129,21 @@ export default function FontShop() {
                     key={font.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: i * 0.08 }}
-                    className="border border-border bg-card rounded-2xl overflow-hidden p-6 flex flex-col justify-between hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5"
+                    transition={{ duration: 0.35, delay: Math.min(i, 4) * 0.05 }}
+                    className="flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/30 sm:p-6"
                   >
                     <div>
                       <div className="flex justify-between items-start gap-4 mb-4">
                         <div>
-                          <span className="text-[9px] uppercase tracking-[0.15em] font-mono text-muted-foreground">{font.category || "Digital Font File"}</span>
-                          <h3 className="text-xl font-bold font-display mt-0.5">{font.name}</h3>
+                          <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{font.category || "Digital font file"}</span>
+                          <h3 className="mt-1 text-xl font-bold">{font.name}</h3>
                         </div>
-                        <span className="text-lg font-bold text-primary font-display">{formatPriceAED(font.price)}</span>
+                        <span className="price-display text-2xl">{formatPriceAED(font.price)}</span>
                       </div>
 
                       <div className="relative h-32 rounded-xl bg-background border border-border flex items-center justify-center overflow-hidden mb-5">
-                        <span className="absolute top-2 left-3 text-[8px] font-mono uppercase tracking-widest text-muted-foreground select-none">
-                          Secure Image Preview
+                        <span className="absolute left-3 top-2 text-xs font-medium text-muted-foreground select-none">
+                          Preview image
                         </span>
                         <img
                           src={getFontPreviewUrl(font, previewText)}
@@ -155,7 +155,7 @@ export default function FontShop() {
 
                       {/* Controls */}
                       <div className="grid gap-3 mb-6">
-                        <label className="grid gap-1 text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+                        <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
                           Test custom text
                           <input
                             type="text"
@@ -163,7 +163,7 @@ export default function FontShop() {
                             onChange={(e) => handlePreviewChange(font.id, e.target.value)}
                             placeholder="Type to try..."
                             maxLength={20}
-                            className="h-10 rounded-lg border border-border bg-background px-3 text-sm tracking-normal text-foreground outline-none focus:border-primary w-full"
+                            className="h-11 w-full rounded-lg border border-border bg-background px-3 text-base tracking-normal text-foreground outline-none focus:border-primary"
                           />
                         </label>
                       </div>
@@ -172,7 +172,7 @@ export default function FontShop() {
                     <button
                       type="button"
                       onClick={() => handleAddToBag(font)}
-                      className={`flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-xs font-bold uppercase tracking-[0.14em] transition-all ${
+                      className={`flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-all ${
                         isAdded
                           ? "bg-emerald-600 text-white"
                           : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -180,11 +180,11 @@ export default function FontShop() {
                     >
                       {isAdded ? (
                         <>
-                          <Check size={14} /> Added to Bag
+                          <Check size={15} /> Added to bag
                         </>
                       ) : (
                         <>
-                          <ShoppingBag size={14} /> Buy Font File
+                          <ShoppingBag size={15} /> Add font file
                         </>
                       )}
                     </button>
