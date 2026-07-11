@@ -3659,6 +3659,7 @@ function OrderEditor({
   paymentMethods,
   addOnPricing,
   message,
+  messageIsError,
   onChange,
   onClose,
   onSave,
