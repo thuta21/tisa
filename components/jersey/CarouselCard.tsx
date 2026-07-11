@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import Image from "next/image";
 import { getJerseyKitImage, kitImageFilters, type Jersey, type KitVariant } from "@/lib/jerseys";
 
@@ -19,12 +19,7 @@ export default function CarouselCard({
   const [tiltY, setTiltY] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const kitImage = getJerseyKitImage(jersey, selectedKit);
-  const [imageSrc, setImageSrc] = useState(kitImage);
   const imageFilter = `drop-shadow(0 20px 30px rgba(0,0,0,0.35)) ${kitImageFilters[selectedKit]}`;
-
-  useEffect(() => {
-    setImageSrc(kitImage);
-  }, [kitImage]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isActive || !cardRef.current) return;
@@ -63,15 +58,7 @@ export default function CarouselCard({
           className="absolute inset-0 flex flex-col items-center overflow-visible"
         >
           <div className="relative w-full h-full">
-            <Image
-              src={imageSrc}
-              alt={`${jersey.name} front`}
-              fill
-              sizes="300px"
-              className="object-contain select-none pointer-events-none"
-              style={{ filter: imageFilter }}
-              onError={() => setImageSrc("/assets/tisa-shirt.png")}
-            />
+            <CarouselImage key={kitImage} source={kitImage} alt={`${jersey.name} front`} filter={imageFilter} />
           </div>
         </div>
       </div>
@@ -79,4 +66,9 @@ export default function CarouselCard({
       {isActive && <div className="absolute -inset-4 pointer-events-none -z-10" />}
     </div>
   );
+}
+
+function CarouselImage({ source, alt, filter }: { source: string; alt: string; filter: string }) {
+  const [imageSrc, setImageSrc] = useState(source);
+  return <Image src={imageSrc} alt={alt} fill sizes="300px" className="pointer-events-none select-none object-contain" style={{ filter }} onError={() => setImageSrc("/assets/tisa-shirt.png")} />;
 }

@@ -533,6 +533,10 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+function isErrorActionMessage(message: string) {
+  return /\b(error|failed|required|invalid|missing|cannot|not contain|not available|stopped)\b/i.test(message);
+}
+
 function normalizeLookupValue(value: string) {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
@@ -824,6 +828,7 @@ export default function AdminDashboard() {
   const [authMessage, setAuthMessage] = useState("");
   const [loadingData, setLoadingData] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
+  const [actionIsError, setActionIsError] = useState(false);
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [paymentProofs, setPaymentProofs] = useState<DbPaymentProof[]>([]);
@@ -851,10 +856,12 @@ export default function AdminDashboard() {
   const [fontsList, setFontsList] = useState<DbFont[]>([]);
   const [editingFont, setEditingFont] = useState<Partial<DbFont> | null>(null);
   const [savingFont, setSavingFont] = useState(false);
+  const actionHasError = actionIsError || isErrorActionMessage(actionMessage);
 
   const loadAdminData = useCallback(async () => {
     setLoadingData(true);
     setActionMessage("");
+    setActionIsError(false);
     const supabase = createSupabaseBrowserClient();
 
     const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult, paymentMethodsResult, pricingResult] = await Promise.all([
@@ -896,6 +903,7 @@ export default function AdminDashboard() {
       pricingResult.error;
     if (firstError) {
       setActionMessage(firstError.message);
+      setActionIsError(true);
     } else {
       const loadedPaymentMethods = (paymentMethodsResult.data ?? []) as DbPaymentMethod[];
       const paymentMethodNames = new Map(loadedPaymentMethods.map((method) => [method.slug, method.name]));
@@ -1046,6 +1054,7 @@ export default function AdminDashboard() {
 
   const saveOrder = async (form: OrderFormState) => {
     setActionMessage("");
+    setActionIsError(false);
     const supabase = createSupabaseBrowserClient();
     const items = form.items.filter((item) => item.product_name.trim() && item.size.trim() && toNumber(item.quantity, 1) > 0);
     const subtotal = getOrderSubtotal(items, addOnPricing);
@@ -1054,11 +1063,13 @@ export default function AdminDashboard() {
 
     if (!form.customer_name.trim() || !form.customer_phone.trim() || !form.country.trim() || !form.region.trim() || !form.delivery_address.trim()) {
       setActionMessage("Customer name, phone, country, region, and delivery address are required.");
+      setActionIsError(true);
       return;
     }
 
     if (!items.length) {
       setActionMessage("Add at least one order item.");
+      setActionIsError(true);
       return;
     }
 
@@ -1090,6 +1101,7 @@ export default function AdminDashboard() {
 
     if (orderResult.error || !orderResult.data) {
       setActionMessage(orderResult.error?.message ?? "Failed to save order.");
+      setActionIsError(true);
       return;
     }
 
@@ -1386,6 +1398,7 @@ export default function AdminDashboard() {
 
     if (!name || (section !== "sizes" && !slug)) {
       setActionMessage(`${getSettingTitle(section).slice(0, -1)} name is required.`);
+      setActionIsError(true);
       return;
     }
 
@@ -1422,6 +1435,7 @@ export default function AdminDashboard() {
 
     if (result.error) {
       setActionMessage(result.error.message);
+      setActionIsError(true);
       return;
     }
 
@@ -1438,6 +1452,7 @@ export default function AdminDashboard() {
       arm_badge_price: Math.max(0, Math.floor(addOnPricing.armBadge)),
     });
     setActionMessage(error ? error.message : "Additional prices saved.");
+    setActionIsError(Boolean(error));
   };
 
   const savePaymentMethod = async (form: PaymentMethodFormState) => {
@@ -1446,6 +1461,7 @@ export default function AdminDashboard() {
     const slug = slugify(form.slug || name);
     if (!name || !slug) {
       setActionMessage("Payment method name is required.");
+      setActionIsError(true);
       return;
     }
 
@@ -1461,6 +1477,7 @@ export default function AdminDashboard() {
 
     if (result.error) {
       setActionMessage(result.error.message);
+      setActionIsError(true);
       return;
     }
 
@@ -1676,6 +1693,7 @@ export default function AdminDashboard() {
       setActionMessage("Product saved.");
     } catch (error) {
       setActionMessage(getErrorMessage(error));
+      setActionIsError(true);
     }
   };
 
@@ -1746,11 +1764,13 @@ export default function AdminDashboard() {
 
   const handleDownloadProductTemplate = async () => {
     setActionMessage("");
+    setActionIsError(false);
     try {
       await downloadProductImportTemplate(productImportReference);
       setActionMessage("Product import template downloaded.");
     } catch (error) {
       setActionMessage(`Template download failed: ${getErrorMessage(error)}`);
+      setActionIsError(true);
     }
   };
 
@@ -1760,6 +1780,7 @@ export default function AdminDashboard() {
     if (!file) return;
 
     setActionMessage("");
+    setActionIsError(false);
     setParsingProductImport(true);
     try {
       const preview = await parseProductImportFile(file, productImportReference, products);
@@ -1768,6 +1789,7 @@ export default function AdminDashboard() {
       setActiveTab("products");
     } catch (error) {
       setActionMessage(`Import file could not be read: ${getErrorMessage(error)}`);
+      setActionIsError(true);
     } finally {
       setParsingProductImport(false);
     }
@@ -1788,6 +1810,7 @@ export default function AdminDashboard() {
       } catch (error) {
         await loadAdminData();
         setActionMessage(`Import stopped on row ${row.rowNumber}: ${getErrorMessage(error)}`);
+        setActionIsError(true);
         setImportingProducts(false);
         return;
       }
@@ -1806,6 +1829,7 @@ export default function AdminDashboard() {
     const { error } = await supabase.from("products").delete().eq("id", product.id);
     if (error) {
       setActionMessage(error.message);
+      setActionIsError(true);
       return;
     }
     setActionMessage("Product deleted.");
@@ -2151,7 +2175,7 @@ export default function AdminDashboard() {
         </header>
 
         {actionMessage && (
-          <div className="mt-5 rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+          <div className={`mt-5 rounded-lg border px-4 py-3 text-sm ${actionHasError ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-background text-muted-foreground"}`}>
             {actionMessage}
           </div>
         )}
@@ -2689,6 +2713,7 @@ export default function AdminDashboard() {
           paymentMethods={paymentMethods}
           addOnPricing={addOnPricing}
           message={actionMessage}
+          messageIsError={actionHasError}
           onChange={setEditingOrder}
           onClose={() => setEditingOrder(null)}
           onSave={saveOrder}
@@ -3644,6 +3669,7 @@ function OrderEditor({
   paymentMethods: DbPaymentMethod[];
   addOnPricing: AddOnPricing;
   message: string;
+  messageIsError: boolean;
   onChange: (form: OrderFormState) => void;
   onClose: () => void;
   onSave: (form: OrderFormState) => Promise<void>;
@@ -3713,7 +3739,7 @@ function OrderEditor({
 
         <div className="flex-1 overflow-y-auto p-5">
           {message && (
-            <div className="mb-5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${messageIsError ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-muted/40 text-muted-foreground"}`}>
               {message}
             </div>
           )}
@@ -4092,6 +4118,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                   <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 text-xs">
                     <div>
                       <p className="font-semibold">{item.product_name} × {item.quantity}</p>
+                      <p className="mt-1 text-[10px] text-neutral-600">Size: {item.size}</p>
                       {(item.custom_name || item.custom_number) && (
                         <p className="mt-1 text-[10px] text-neutral-600">
                           Customize Name &amp; Number x {item.quantity}

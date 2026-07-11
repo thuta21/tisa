@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { CircleUserRound, LogOut, Menu, ShoppingBag, X } from "lucide-react";
 import { useCart } from "@/lib/CartContext";
+import { useAuth } from "@/lib/AuthContext";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -18,6 +19,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { itemCount } = useCart();
+  const { isAuthenticated, isLoadingAuth, logout } = useAuth();
 
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -51,6 +53,36 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3 justify-self-end">
+          {!isLoadingAuth && (isAuthenticated ? (
+            <>
+              <Link
+              href="/account"
+              aria-label="My account"
+              title="My account"
+              className="hidden size-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary sm:flex"
+            >
+              <CircleUserRound size={18} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                aria-label="Log out"
+                title="Log out"
+                className="hidden size-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary sm:flex"
+              >
+                <LogOut size={17} />
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              aria-label="Log in"
+              title="Log in"
+              className="hidden size-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary sm:flex"
+            >
+              <CircleUserRound size={18} />
+            </Link>
+          ))}
           <Link
             href="/cart"
             aria-label={`Shopping bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
@@ -87,6 +119,24 @@ export default function Navbar() {
                 className={`rounded-lg px-3 py-3 text-base font-medium transition-colors ${isActive(item.href) ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
                 {item.label}
+              </Link>
+            ))}
+            {!isLoadingAuth && (isAuthenticated ? (
+              <>
+                <Link href="/account" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <CircleUserRound size={18} /> My account
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => { void logout(); setOpen(false); }}
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-left text-base font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <LogOut size={17} /> Log out
+                </button>
+              </>
+            ) : (
+              <Link href="/login" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                <CircleUserRound size={18} /> Log in
               </Link>
             ))}
           </nav>

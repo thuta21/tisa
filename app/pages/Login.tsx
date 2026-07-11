@@ -2,30 +2,53 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next");
+  const destination = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+  const notice = searchParams.get("reset") === "success" ? "Your password has been updated. Please log in." : "";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await Promise.resolve({ email, password });
-    setLoading(false);
-    setError("Login API is not connected yet.");
+    const supabase = createSupabaseBrowserClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+    router.replace(destination);
+    router.refresh();
   };
 
-  const handleGoogle = () => {
-    setError("Google login API is not connected yet.");
+  const handleGoogle = async () => {
+    setError("");
+    setLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}` },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +69,7 @@ export default function Login() {
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
         onClick={handleGoogle}
+        disabled={loading}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
@@ -65,6 +89,7 @@ export default function Login() {
           {error}
         </div>
       )}
+      {notice && <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-foreground">{notice}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -79,6 +104,7 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(error)}
               className="pl-10 h-12"
               required
             />
@@ -100,6 +126,7 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(error)}
               className="pl-10 h-12"
               required
             />

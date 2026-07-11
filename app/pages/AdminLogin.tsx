@@ -125,7 +125,8 @@ export default function AdminLogin() {
                     type="email"
                     autoComplete="email"
                     required
-                    className="h-14 w-full rounded-lg border border-border bg-background pl-12 pr-4 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+                    aria-invalid={Boolean(error)}
+                    className={`h-14 w-full rounded-lg border bg-background pl-12 pr-4 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary ${error ? "border-destructive focus:border-destructive" : "border-border"}`}
                     placeholder="admin@tisa.com"
                   />
                 </span>
@@ -141,7 +142,8 @@ export default function AdminLogin() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
-                    className="h-14 w-full rounded-lg border border-border bg-background pl-12 pr-12 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+                    aria-invalid={Boolean(error)}
+                    className={`h-14 w-full rounded-lg border bg-background pl-12 pr-12 text-base font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary ${error ? "border-destructive focus:border-destructive" : "border-border"}`}
                     placeholder="••••••••"
                   />
                   <button

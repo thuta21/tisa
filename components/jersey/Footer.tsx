@@ -21,7 +21,7 @@ export default function Footer() {
             <Image src="/assets/tisa-logo.png" alt="" width={30} height={30} className="rounded-md object-cover" />
             <span className="text-sm font-bold tracking-[0.16em] text-primary">TISA</span>
           </Link>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+          <p className="mt-3 text-sm leading-6 text-muted-foreground sm:max-w-none sm:whitespace-nowrap">
             Match-day kits with clear stock, sizing and order-review information.
           </p>
           <p className="mt-3 text-xs text-muted-foreground">© 2026 TISA</p>

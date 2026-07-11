@@ -58,12 +58,14 @@ export default function Checkout() {
     const reference = `TISA-${Date.now().toString().slice(-6)}`;
     const deliveryFee = 0;
     const supabase = createSupabaseBrowserClient();
+    const { data: userData } = await supabase.auth.getUser();
 
     const orderPayload = {
       order_number: reference,
       customer_name: String(formData.get("name") || "").trim(),
       customer_phone: String(formData.get("phone") || "").trim(),
       customer_email: String(formData.get("email") || "").trim() || null,
+      customer_id: userData.user?.id ?? null,
       country: String(formData.get("country") || "United Arab Emirates").trim(),
       region: String(formData.get("region") || "").trim(),
       delivery_address: String(formData.get("address") || "").trim(),

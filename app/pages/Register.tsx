@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
-import { toast } from "@/components/ui/use-toast";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -17,8 +16,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,95 +27,48 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await Promise.resolve({ email, password });
-      setShowOtp(true);
-    } catch {
-      setError("Registration failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async () => {
-      setError("");
-      setLoading(true);
-    try {
-      await Promise.resolve({ email, otpCode });
-      setError("Registration API is not connected yet.");
-    } catch {
-      setError("Invalid verification code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError("");
-    try {
-      await Promise.resolve(email);
-      toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
+      }
+      const supabase = createSupabaseBrowserClient();
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
-    } catch {
-      setError("Failed to resend code");
+      if (signUpError) throw signUpError;
+      setConfirmationSent(true);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Registration failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogle = () => {
-    setError("Google login API is not connected yet.");
+  const handleGoogle = async () => {
+    setError("");
+    setLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      setLoading(false);
+    }
   };
 
-  if (showOtp) {
+  if (confirmationSent) {
     return (
       <AuthLayout
         icon={Mail}
-        title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
+        title="Check your email"
+        subtitle={`We sent a confirmation link to ${email}`}
       >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-          </div>
-        )}
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn&apos;t receive the code?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
-            Resend
-          </button>
-        </p>
+        <p className="text-center text-sm leading-6 text-muted-foreground">Open the confirmation link to activate your TISA account. You can then log in with your email and password.</p>
+        <Link href="/login" className="mt-6 flex h-12 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground">Go to log in</Link>
       </AuthLayout>
     );
   }
@@ -140,6 +91,7 @@ export default function Register() {
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
         onClick={handleGoogle}
+        disabled={loading}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
@@ -173,6 +125,7 @@ export default function Register() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(error)}
               className="pl-10 h-12"
               required
             />
@@ -189,6 +142,7 @@ export default function Register() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(error)}
               className="pl-10 h-12"
               required
             />
@@ -205,6 +159,7 @@ export default function Register() {
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={Boolean(error)}
               className="pl-10 h-12"
               required
             />

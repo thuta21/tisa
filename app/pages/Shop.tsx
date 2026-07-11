@@ -36,8 +36,13 @@ function getAvailabilityLabel(jersey: CatalogJersey) {
 
 function CatalogImage({ jersey }: { jersey: CatalogJersey }) {
   const [src, setSrc] = useState(jersey.image_front);
-  useEffect(() => setSrc(jersey.image_front), [jersey.image_front]);
   return <Image src={src} alt={jersey.name} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-contain p-5 transition-transform duration-300 group-hover:scale-[1.035]" style={{ filter: "drop-shadow(0 14px 22px rgba(0,0,0,0.24))" }} onError={() => setSrc("/assets/tisa-shirt.png")} />;
+}
+
+function getInitialSort(): SortOption {
+  if (typeof window === "undefined") return "newest";
+  const requestedSort = new URLSearchParams(window.location.search).get("sort");
+  return requestedSort === "price-asc" || requestedSort === "price-desc" || requestedSort === "newest" ? requestedSort : "newest";
 }
 
 export default function Shop() {
@@ -45,13 +50,10 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortOption>("newest");
+  const [sort, setSort] = useState<SortOption>(getInitialSort);
   const [inStockOnly, setInStockOnly] = useState(false);
 
   useEffect(() => {
-    const requestedSort = new URLSearchParams(window.location.search).get("sort");
-    if (requestedSort === "price-asc" || requestedSort === "price-desc" || requestedSort === "newest") setSort(requestedSort);
-
     let mounted = true;
     loadCatalogJerseys()
       .then((items) => {
@@ -155,7 +157,7 @@ export default function Shop() {
                   <article key={jersey.id}>
                     <Link href={`/jersey/${jersey.slug}`} className="group block overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/35">
                       <div className="relative aspect-[4/5] overflow-hidden bg-muted/45 p-5 sm:p-6">
-                        <CatalogImage jersey={jersey} />
+                        <CatalogImage key={jersey.image_front} jersey={jersey} />
                       </div>
                       <div className="border-t border-border p-5">
                         <div className="flex items-start justify-between gap-3">
