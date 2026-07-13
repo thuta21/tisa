@@ -4119,12 +4119,9 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                   <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 text-xs">
                     <div>
                       <p className="font-semibold">{item.product_name} × {item.quantity}</p>
-                      <p className="mt-1 text-[10px] text-neutral-600">Size: {item.size}</p>
-                      {(item.custom_name || item.custom_number) && (
-                        <p className="mt-1 text-[10px] text-neutral-600">
-                          Customize Name &amp; Number x {item.quantity}
-                        </p>
-                      )}
+                      <p className="mt-1 text-[10px] text-neutral-600">
+                        Size: {item.size}{(item.custom_name || item.custom_number) && <> <span className="px-1">|</span> Customize Name &amp; Number x {item.quantity}</>}
+                      </p>
                       {item.arm_badge && (
                         <p className="mt-1 text-[10px] text-neutral-600">
                           Arm Badge x {item.quantity}
