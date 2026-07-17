@@ -4020,6 +4020,11 @@ function OrderDetailModal({
   );
 }
 
+function getSlipVariantLabel(kitName: string) {
+  const variant = kitName.match(/\b(home|away|third)\b/i)?.[1];
+  return variant ? `${variant[0].toUpperCase()}${variant.slice(1).toLowerCase()}` : kitName.replace(/\s*kit$/i, "");
+}
+
 function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => void }) {
   const [size, setSize] = useState<PrintSlipSize>("rp425-4x6");
   const selectedSize = printSlipSizes.find((item) => item.id === size) ?? printSlipSizes[0];
@@ -4120,7 +4125,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
                     <div>
                       <p className="font-semibold">{item.product_name} × {item.quantity}</p>
                       <p className="mt-1 text-[10px] text-neutral-600">
-                        Size: {item.size}{(item.custom_name || item.custom_number) && <> <span className="px-1">|</span> Customize Name &amp; Number x {item.quantity}</>}
+                        Size: {item.size} <span className="px-1">|</span> Variant: {getSlipVariantLabel(item.kit_name)}{(item.custom_name || item.custom_number) && <> <span className="px-1">|</span> Customize Name &amp; Number x {item.quantity}</>}
                       </p>
                       {item.arm_badge && (
                         <p className="mt-1 text-[10px] text-neutral-600">
