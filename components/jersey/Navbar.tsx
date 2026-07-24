@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/AuthContext";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
-  { href: "/fonts", label: "Name & Number" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -44,10 +43,10 @@ export default function Navbar() {
               key={item.href}
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
-              className={`relative py-2 transition-colors ${isActive(item.href) ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`relative py-2 transition-colors ${isActive(item.href) ? "text-[#E10714]" : "text-muted-foreground hover:text-[#E10714]"}`}
             >
               {item.label}
-              {isActive(item.href) && <span className="absolute inset-x-0 -bottom-3 h-0.5 rounded-full bg-primary" />}
+              {isActive(item.href) && <span className="absolute inset-x-0 -bottom-3 h-0.5 rounded-full bg-[#E10714]" />}
             </Link>
           ))}
         </nav>
@@ -116,7 +115,7 @@ export default function Navbar() {
                 href={item.href}
                 aria-current={isActive(item.href) ? "page" : undefined}
                 onClick={() => setOpen(false)}
-                className={`rounded-lg px-3 py-3 text-base font-medium transition-colors ${isActive(item.href) ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                className={`rounded-lg px-3 py-3 text-base font-medium transition-colors ${isActive(item.href) ? "bg-[#E10714]/8 text-[#E10714]" : "text-muted-foreground hover:bg-[#E10714]/6 hover:text-[#E10714]"}`}
               >
                 {item.label}
               </Link>

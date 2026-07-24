@@ -133,6 +133,31 @@
   .price-display {
     @apply font-bold tracking-tight tabular-nums text-primary;
   }
+
+  .tisa-page-surface {
+    background-color: #f8f8f7;
+    background-image:
+      radial-gradient(circle at 5% 9%, rgb(255 0 28 / 0.12) 0, transparent 25rem),
+      radial-gradient(circle at 94% 13%, rgb(10 10 10 / 0.08) 0, transparent 28rem),
+      radial-gradient(circle at 74% 88%, rgb(255 0 28 / 0.055) 0, transparent 31rem),
+      linear-gradient(180deg, #fff 0%, #f3f3f2 48%, #fff 100%);
+  }
+
+  .tisa-showcase-surface {
+    background-color: #f8f8f7;
+    background-image:
+      radial-gradient(circle at 50% 44%, rgb(255 255 255 / 0.98) 0, transparent 29%),
+      radial-gradient(circle at 76% 36%, rgb(255 0 28 / 0.13) 0, transparent 34%),
+      radial-gradient(circle at 25% 57%, rgb(8 8 8 / 0.09) 0, transparent 34%),
+      radial-gradient(circle at 88% 88%, rgb(255 0 28 / 0.07) 0, transparent 27%),
+      linear-gradient(145deg, #fff 0%, #f1f1f0 48%, #fff 100%);
+  }
+
+  .tisa-card-highlight {
+    background-image:
+      radial-gradient(circle at 50% 22%, rgb(255 255 255 / 0.98) 0, transparent 43%),
+      linear-gradient(145deg, #f7f7f6 0%, #e9e9e8 100%);
+  }
 }
 
 @media print {
