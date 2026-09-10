@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Check, ChevronDown, Clock3, Search, Shirt, X } from "lucide-react";
 import {
   formatPriceAED,
@@ -49,6 +49,12 @@ function getSeasonLabel(jersey: Jersey) {
   return jersey.season || jersey.collection || "Current season";
 }
 
+function getProductOptionLabel(jersey: Jersey) {
+  const catalogJersey = jersey as Jersey & { product?: { sleeve?: "short" | "long" } };
+  const sleeve = catalogJersey.product?.sleeve === "long" ? "Long sleeve" : "Short sleeve";
+  return `${getSeasonLabel(jersey)} · ${sleeve}`;
+}
+
 function colorWithAlpha(color: string, alpha: number) {
   const value = color.trim();
   const shortHex = /^#([\da-f])([\da-f])([\da-f])$/i.exec(value);
@@ -68,10 +74,11 @@ function colorWithAlpha(color: string, alpha: number) {
 }
 
 export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogLeagues, onSelect }: FeaturedJerseyShowcaseProps) {
+  const prefersReducedMotion = useReducedMotion();
   const firstJersey = jerseys[0];
   const [selectedLeague, setSelectedLeague] = useState(firstJersey?.league ?? "");
   const [selectedTeam, setSelectedTeam] = useState(firstJersey?.team ?? "");
-  const [selectedSeason, setSelectedSeason] = useState(firstJersey ? getSeasonLabel(firstJersey) : "");
+  const [selectedProductId, setSelectedProductId] = useState(firstJersey?.id ?? "");
   const [selectedKit, setSelectedKit] = useState<KitVariant>(
     firstJersey ? getFirstAvailableKit(firstJersey) : "home",
   );
@@ -146,8 +153,8 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
   );
 
   const selectedJersey = useMemo(
-    () => teamJerseys.find((jersey) => getSeasonLabel(jersey) === selectedSeason) ?? teamJerseys[0] ?? leagueJerseys[0] ?? firstJersey,
-    [firstJersey, leagueJerseys, selectedSeason, teamJerseys],
+    () => teamJerseys.find((jersey) => jersey.id === selectedProductId) ?? teamJerseys[0] ?? leagueJerseys[0] ?? firstJersey,
+    [firstJersey, leagueJerseys, selectedProductId, teamJerseys],
   );
 
   useEffect(() => {
@@ -195,12 +202,12 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
 
     if (nextJersey) {
       setSelectedTeam(nextJersey.team);
-      setSelectedSeason(getSeasonLabel(nextJersey));
+      setSelectedProductId(nextJersey.id);
       return;
     }
 
     setSelectedTeam(firstDatabaseTeam?.name ?? "");
-    setSelectedSeason("");
+    setSelectedProductId("");
   };
 
   const selectTeam = (team: string) => {
@@ -213,7 +220,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
     }
     setComingSoonTeam(null);
     setSelectedTeam(nextJersey.team);
-    setSelectedSeason(getSeasonLabel(nextJersey));
+    setSelectedProductId(nextJersey.id);
   };
 
   const chooseLeague = (league: string) => {
@@ -240,7 +247,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 setLeagueSearch("");
                 setHighlightedLeagueIndex(Math.max(0, leagues.indexOf(selectedLeague)));
               }}
-              className={`flex h-12 w-full items-center justify-between gap-3 rounded-[14px] border px-3.5 text-left text-[13px] font-bold text-[#E10714] outline-none transition-all duration-200 focus:ring-2 focus:ring-[#E10714]/20 ${leagueMenuOpen ? "border-[#E10714] bg-[#E10714]/[0.055] shadow-sm" : "border-[#E10714]/45 bg-white hover:border-[#E10714] hover:bg-[#E10714]/[0.035]"}`}
+              className={`flex h-12 w-full items-center justify-between gap-3 rounded-[14px] border px-3.5 text-left text-[13px] font-medium text-[#D90917] outline-none transition-all duration-200 focus:ring-2 focus:ring-[#E10714]/20 ${leagueMenuOpen ? "border-[#E10714] bg-[#E10714]/[0.045] shadow-sm" : "border-[#E10714]/35 bg-white hover:border-[#E10714]/70 hover:bg-[#E10714]/[0.025]"}`}
             >
               <span className="flex min-w-0 items-center gap-2.5">
                 {selectedLeagueLogo && (
@@ -360,7 +367,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                       <TeamLogo logoPath={teamLogo} alt="" sizes="32px" className="object-contain" />
                     </span>
                   ) : (
-                    <span aria-hidden="true" className="text-xs font-black uppercase tracking-tight">
+                    <span aria-hidden="true" className="text-xs font-semibold uppercase tracking-tight">
                       {team.split(/\s+/).map((word) => word[0]).join("").slice(0, 3)}
                     </span>
                   )}
@@ -380,13 +387,12 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 <label className="relative shrink-0">
                   <span className="sr-only">Choose a season</span>
                   <select
-                    value={getSeasonLabel(selectedJersey)}
-                    onChange={(event) => setSelectedSeason(event.target.value)}
+                    value={selectedJersey.id}
+                    onChange={(event) => setSelectedProductId(event.target.value)}
                     className="h-12 min-w-[132px] appearance-none rounded-[14px] border border-[#E10714]/45 bg-white py-0 pl-3.5 pr-9 text-[13px] font-semibold text-[#E10714] outline-none transition-all hover:border-[#E10714] hover:bg-[#E10714]/[0.035] focus:border-[#E10714] focus:ring-2 focus:ring-[#E10714]/20"
                   >
                     {teamJerseys.map((jersey) => {
-                      const season = getSeasonLabel(jersey);
-                      return <option key={jersey.id} value={season}>{season}</option>;
+                      return <option key={jersey.id} value={jersey.id}>{getProductOptionLabel(jersey)}</option>;
                     })}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#E10714]" size={15} />
@@ -419,8 +425,8 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[9px] font-black uppercase tracking-[0.2em] text-[#E10714]">Coming soon</span>
-                <span className="mt-0.5 block truncate text-sm font-bold text-neutral-950">{comingSoonTeam}</span>
+                <span className="block text-[9px] font-medium uppercase tracking-[0.2em] text-[#E10714]">Coming soon</span>
+                <span className="mt-0.5 block truncate text-sm font-semibold text-neutral-950">{comingSoonTeam}</span>
                 <span className="block text-xs text-neutral-500">New kits are being prepared.</span>
               </span>
               <button
@@ -438,17 +444,22 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
 
       {selectedLeagueHasProducts ? (
       <div className="relative z-10 mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-1 items-center gap-5 px-5 py-5 sm:px-6 md:grid-cols-[0.78fr_1.45fr_1fr] md:gap-5 md:py-7 lg:grid-cols-[0.72fr_1.55fr_1fr] lg:gap-7">
-        <div className="order-2 z-20 grid grid-cols-2 gap-5 rounded-[24px] border border-white/90 bg-white/72 p-5 shadow-[0_18px_55px_rgba(0,0,0,0.07)] backdrop-blur-xl md:order-1 md:block md:p-6">
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+          className="order-2 z-20 grid grid-cols-2 gap-5 rounded-[24px] border border-white/80 bg-white/76 p-5 shadow-[0_20px_60px_rgba(22,22,22,0.065)] backdrop-blur-2xl md:order-1 md:block md:p-6"
+        >
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">Price</p>
-            <p className="mt-1.5 text-3xl font-black tracking-[-0.05em] sm:text-4xl">{formatPriceAED(selectedPrice)}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Price</p>
+            <p className="mt-1.5 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{formatPriceAED(selectedPrice)}</p>
             <p className="mt-1 text-[11px] font-medium text-neutral-400">VAT included</p>
           </div>
           <div className="md:mt-7 md:border-t md:border-black/[0.06] md:pt-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">Available sizes</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Available sizes</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {sizes.length > 0 ? sizes.slice(0, 6).map((size) => (
-                <span key={size} className="grid h-9 min-w-9 place-items-center rounded-full border border-black/[0.08] bg-white px-2.5 text-[11px] font-bold shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E10714] hover:bg-[#E10714] hover:text-white hover:shadow-md hover:shadow-[#E10714]/15">{size}</span>
+                <span key={size} className="grid h-9 min-w-9 place-items-center rounded-full border border-black/[0.08] bg-white px-2.5 text-[11px] font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E10714] hover:bg-[#E10714] hover:text-white hover:shadow-md hover:shadow-[#E10714]/15">{size}</span>
               )) : <span className="text-sm text-neutral-500">Check details</span>}
             </div>
           </div>
@@ -458,7 +469,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
               {selectedKitData?.stock ? `${selectedKitData.stock} ready to order` : "Availability shown in details"}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         <div className="order-1 relative isolate z-10 min-h-[380px] md:order-2 md:min-h-[500px] lg:min-h-[590px]">
           <div
@@ -477,7 +488,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
           <AnimatePresence mode="wait">
             <motion.div
               key={`${selectedJersey.id}-${activeKit}`}
-              initial={{ opacity: 0, y: 18, scale: 0.96 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 18, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -12, scale: 0.98 }}
               transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
@@ -488,13 +499,18 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 alt={`${selectedJersey.team} ${activeKit} jersey`}
                 sizes="(max-width: 768px) 90vw, 52vw"
                 priority
-                className="object-contain drop-shadow-[0_32px_38px_rgba(0,0,0,0.28)]"
+                className="tisa-product-float object-contain drop-shadow-[0_32px_38px_rgba(0,0,0,0.24)]"
               />
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <div className="order-3 z-20 rounded-[28px] border border-white/90 bg-white/78 p-5 shadow-[0_20px_65px_rgba(0,0,0,0.09)] backdrop-blur-xl md:p-6">
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.58, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="order-3 z-20 rounded-[28px] border border-white/80 bg-white/80 p-5 shadow-[0_24px_70px_rgba(22,22,22,0.075)] backdrop-blur-2xl md:p-6"
+        >
           <div className="flex items-center gap-3">
             <AnimatePresence mode="wait">
               {selectedTeamLogo && (
@@ -516,15 +532,15 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
               )}
             </AnimatePresence>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">Featured kit</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Featured kit</p>
               <p className="mt-1 text-xs font-semibold text-neutral-500">{selectedJersey.team} · {getSeasonLabel(selectedJersey)}</p>
             </div>
           </div>
-          <h1 className="mt-5 max-w-md text-3xl font-black leading-[0.96] tracking-[-0.055em] sm:text-4xl md:text-3xl lg:text-[38px]">{selectedJersey.name}</h1>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-neutral-500">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, ready for your name and number.`}</p>
+          <h1 className="mt-5 max-w-md text-3xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-4xl md:text-3xl lg:text-[38px]">{selectedJersey.name}</h1>
+          <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, ready for your name and number.`}</p>
 
           <div className="mt-6 border-t border-black/[0.06] pt-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">Choose kit</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose kit</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {kitOptions.map((kit) => {
                 const available = isJerseyKitAvailable(selectedJersey, kit.id);
@@ -541,7 +557,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                     <span className="relative mx-auto block h-14 w-full">
                       {available ? <SafeJerseyImage source={getJerseyKitImage(selectedJersey, kit.id)} alt="" sizes="84px" /> : <Shirt className="absolute inset-0 m-auto text-neutral-300" size={24} />}
                     </span>
-                    <span className="mt-1 block text-[10px] font-bold">{kit.label.replace(" Kit", "")}</span>
+                    <span className="mt-1 block text-[10px] font-medium">{kit.label.replace(" Kit", "")}</span>
                   </button>
                 );
               })}
@@ -551,12 +567,12 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
           <button
             type="button"
             onClick={() => onSelect(selectedJersey)}
-            className="mt-6 flex h-14 w-full items-center justify-between rounded-full bg-[#E10714] pl-6 pr-2 text-sm font-bold text-white shadow-[0_14px_32px_rgba(225,7,20,0.25)] transition-all hover:-translate-y-0.5 hover:bg-[#c90612] hover:shadow-[0_18px_38px_rgba(225,7,20,0.3)] active:translate-y-0"
+            className="mt-6 flex h-14 w-full items-center justify-between rounded-full bg-[#E10714] pl-6 pr-2 text-sm font-semibold text-white shadow-[0_14px_32px_rgba(225,7,20,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#c90612] hover:shadow-[0_18px_38px_rgba(225,7,20,0.28)] active:translate-y-0"
           >
             View jersey details
             <span className="grid size-10 place-items-center rounded-full bg-white text-[#E10714]"><ArrowUpRight size={17} /></span>
           </button>
-        </div>
+        </motion.div>
       </div>
       ) : (
         <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-5 py-10 sm:px-6">
@@ -572,11 +588,11 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 background: `linear-gradient(90deg, ${colorWithAlpha(primaryColor, 0.15)}, #E10714, ${colorWithAlpha(accentColor, 0.15)})`,
               }}
             />
-            <span className="mx-auto inline-flex items-center gap-2 rounded-full bg-[#E10714]/[0.07] px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#E10714]">
+            <span className="mx-auto inline-flex items-center gap-2 rounded-full bg-[#E10714]/[0.07] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.2em] text-[#E10714]">
               <Clock3 size={13} />
               Coming soon
             </span>
-            <h1 className="mx-auto mt-5 max-w-xl text-4xl font-black tracking-[-0.055em] text-neutral-950 sm:text-5xl">
+            <h1 className="mx-auto mt-5 max-w-xl text-4xl font-semibold tracking-[-0.04em] text-neutral-950 sm:text-5xl">
               {selectedLeague} collection
             </h1>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-neutral-500 sm:text-base">
@@ -599,7 +615,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                         <TeamLogo logoPath={teamLogo} alt="" sizes="48px" className="object-contain" />
                       </span>
                     ) : (
-                      <span className="text-sm font-black text-neutral-400">
+                      <span className="text-sm font-semibold text-neutral-400">
                         {team.split(/\s+/).map((word) => word[0]).join("").slice(0, 3)}
                       </span>
                     )}

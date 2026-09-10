@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, ClipboardCheck, Minus, Plus, RotateCcw, ShoppingBag, Truck } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
@@ -38,6 +38,7 @@ function getJerseyPreviewUrl(fontSlug: string, text: string, color: string) {
 }
 
 export default function JerseyDetail({ id }: { id: string }) {
+  const prefersReducedMotion = useReducedMotion();
   const [jersey, setJersey] = useState<CatalogJersey | null>(null);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
@@ -231,7 +232,7 @@ export default function JerseyDetail({ id }: { id: string }) {
           <div className="grid grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)] lg:gap-8 xl:gap-12">
             {/* Left — Image Gallery */}
             <motion.div
-              initial={{ opacity: 0, x: -30 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: -24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               className="self-start lg:sticky lg:top-24"
@@ -243,10 +244,10 @@ export default function JerseyDetail({ id }: { id: string }) {
                 }}
               >
                 <div className="absolute left-4 top-4 z-10 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-black/[0.07] bg-white/85 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] shadow-sm backdrop-blur">
+                  <span className="rounded-full border border-black/[0.07] bg-white/85 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] shadow-sm backdrop-blur">
                     {kitOptions.find((kit) => kit.id === selectedKit)?.label}
                   </span>
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
+                  <span className="rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-700">
                     {selectedKitData.stock} in stock
                   </span>
                 </div>
@@ -254,9 +255,10 @@ export default function JerseyDetail({ id }: { id: string }) {
                 <div className="relative flex h-[430px] items-center justify-center p-4 sm:h-[540px] lg:h-[calc(100vh-250px)] lg:min-h-[540px] lg:max-h-[680px]">
                   <motion.img
                     key={`${activeImage}-${selectedKit}`}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4 }}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    whileHover={prefersReducedMotion ? undefined : { scale: 1.012, y: -4 }}
+                    transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
                     src={displayImage}
                     alt={jersey.name}
                     className="h-full w-full object-contain select-none"
@@ -279,7 +281,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                     </div>
                   )}
                 </div>
-                <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[76px] font-black uppercase tracking-[-0.08em] text-black/[0.025] sm:text-[105px]">
+                <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[76px] font-medium uppercase tracking-[-0.055em] text-black/[0.025] sm:text-[105px]">
                   {jersey.team}
                 </span>
               </div>
@@ -343,20 +345,20 @@ export default function JerseyDetail({ id }: { id: string }) {
 
             {/* Right — Purchase configuration */}
             <motion.div
-              initial={{ opacity: 0, x: 30 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="flex flex-col rounded-[28px] border border-white/90 bg-white/85 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.075)] backdrop-blur-xl sm:p-7"
+              className="flex flex-col rounded-[28px] border border-white/80 bg-white/88 p-5 shadow-[0_26px_75px_rgba(22,22,22,0.07)] backdrop-blur-2xl sm:p-7"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-primary/8 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
+                <span className="rounded-full bg-primary/8 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.17em] text-primary">
                   {jersey.league}
                 </span>
                 <span className="text-xs font-semibold text-muted-foreground">
                   {jersey.collection}
                 </span>
               </div>
-              <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.045em] sm:text-5xl">
+              <h1 className="mt-4 text-4xl font-semibold leading-[1.04] tracking-[-0.038em] sm:text-5xl">
                 {jersey.name}
               </h1>
               <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -365,7 +367,7 @@ export default function JerseyDetail({ id }: { id: string }) {
 
               <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-black/[0.08] pb-6">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Your total</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Your total</p>
                   <span className="price-display mt-1 block text-4xl">{selectedPrice > 0 ? formatPriceAED(lineItemUnitPrice) : "Price pending"}</span>
                 </div>
                 {selectedSize && selectedSizeStock > 0 && selectedSizeStock <= 3 && <span className="text-sm font-medium text-amber-700 dark:text-amber-300">Only {selectedSizeStock} left in {selectedSize}</span>}
@@ -373,8 +375,8 @@ export default function JerseyDetail({ id }: { id: string }) {
 
               <div className="pt-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
-                    <span className="text-xs font-black text-primary">01</span>
+                  <h3 className="flex items-center gap-2 text-base font-medium text-foreground">
+                    <span className="text-xs font-semibold text-primary">01</span>
                     Select your size
                   </h3>
                   <button type="button" onClick={() => setSizeGuideOpen(true)} className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-primary">Size guide</button>
@@ -405,7 +407,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                 </div>
 
                 <div className="mt-6 border-t border-black/[0.08] pt-5">
-                  <div><h3 className="flex items-center gap-2 text-base font-bold"><span className="text-xs font-black text-primary">02</span>Name & number</h3><p className="mt-1 text-sm text-muted-foreground">Optional · {formatPriceAED(prices.customization)} total when either field is used</p></div>
+                  <div><h3 className="flex items-center gap-2 text-base font-medium"><span className="text-xs font-semibold text-primary">02</span>Name & number</h3><p className="mt-1 text-sm text-muted-foreground">Optional · {formatPriceAED(prices.customization)} total when either field is used</p></div>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
@@ -475,7 +477,7 @@ export default function JerseyDetail({ id }: { id: string }) {
                   type="button"
                   onClick={handleAddToCart}
                   disabled={!selectedSize || !selectedKitData.variantId || selectedKitData.stock < 1 || selectedPrice <= 0}
-                  className="flex min-h-13 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-xs font-bold uppercase tracking-[0.14em] text-primary-foreground shadow-[0_14px_30px_rgba(225,7,20,0.2)] transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_18px_36px_rgba(225,7,20,0.27)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
+                  className="flex min-h-13 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground shadow-[0_14px_30px_rgba(225,7,20,0.18)] transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_18px_36px_rgba(225,7,20,0.24)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   {added ? <Check size={15} /> : <ShoppingBag size={15} />}
                   {added ? "Added to bag" : selectedKitData.stock < 1 ? "Sold out" : selectedPrice <= 0 ? "Price pending" : !selectedSize ? "Select a size" : `Add to bag · ${formatPriceAED(lineItemUnitPrice * quantity)}`}

@@ -19,7 +19,7 @@ export default function Footer() {
         <div>
           <Link href="/" className="inline-flex items-center gap-3" aria-label="TISA home">
             <Image src="/assets/tisa-logo.png" alt="" width={30} height={30} className="rounded-md object-cover" />
-            <span className="text-sm font-bold tracking-[0.16em] text-primary">TISA</span>
+            <span className="text-sm font-semibold tracking-[0.18em] text-primary">TISA</span>
           </Link>
           <p className="mt-3 text-sm leading-6 text-muted-foreground sm:max-w-none sm:whitespace-nowrap">
             Match-day kits with clear stock, sizing and order-review information.

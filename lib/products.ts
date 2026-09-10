@@ -48,6 +48,7 @@ export type CatalogProduct = {
   country_colors: string[];
   featured: boolean;
   status: "draft" | "active" | "archived";
+  sleeve?: "short" | "long";
   created_at?: string;
   leagues?: { id: string; name: string } | null;
   teams?: { id: string; name: string; slug: string; logo_path?: string | null } | null;

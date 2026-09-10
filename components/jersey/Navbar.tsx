@@ -34,7 +34,7 @@ export default function Navbar() {
             className="rounded-lg object-cover"
             priority
           />
-          <span className="text-lg font-bold tracking-[0.16em] text-primary">TISA</span>
+          <span className="text-lg font-semibold tracking-[0.18em] text-primary">TISA</span>
         </Link>
 
         <nav aria-label="Primary navigation" className="hidden items-center gap-8 text-sm font-medium md:flex">

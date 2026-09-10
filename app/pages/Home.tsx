@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BadgeCheck, ClipboardCheck, Ruler } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
@@ -19,13 +19,7 @@ import {
 
 export default function Home() {
   const router = useRouter();
-  const processRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const { scrollYProgress: processScroll } = useScroll({
-    target: processRef,
-    offset: ["start end", "end start"],
-  });
-  const processParallaxX = useTransform(processScroll, [0, 1], [-70, 70]);
   const [jerseys, setJerseys] = useState<Jersey[]>([]);
   const [catalogTeams, setCatalogTeams] = useState<CatalogTeam[]>([]);
   const [catalogLeagues, setCatalogLeagues] = useState<CatalogLeague[]>([]);
@@ -121,13 +115,13 @@ export default function Home() {
           >
             <div className="flex items-center gap-3">
               <span className="h-px w-9 bg-[#ff4550]" />
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#ff4550]">Current collection</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-[#ff6670]">Current collection</p>
             </div>
-            <h2 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+            <h2 className="mt-4 text-4xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
               Find the kit that
               <span className="block text-white/35">feels like yours.</span>
             </h2>
-            <p className="mt-5 max-w-xl text-base leading-7 text-white/50">Compare every available team, kit version and size in one clear collection.</p>
+            <p className="mt-5 max-w-xl text-base font-normal leading-7 text-white/62">Compare every available team, kit version and size in one calm, considered collection.</p>
           </motion.div>
 
           <motion.div
@@ -138,7 +132,7 @@ export default function Home() {
             className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"
           >
             <Link href="/shop?sort=newest" className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-6 text-sm font-semibold text-white shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10 hover:shadow-md">View new arrivals</Link>
-            <Link href="/shop" className="group inline-flex h-12 items-center justify-center gap-3 rounded-full bg-[#E10714] px-6 text-sm font-bold text-white shadow-[0_12px_28px_rgba(225,7,20,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[#c90612] hover:shadow-[0_16px_34px_rgba(225,7,20,0.35)]">
+            <Link href="/shop" className="group inline-flex h-12 items-center justify-center gap-3 rounded-full bg-[#E10714] px-6 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(225,7,20,0.24)] transition-all hover:-translate-y-0.5 hover:bg-[#c90612] hover:shadow-[0_16px_34px_rgba(225,7,20,0.3)]">
               Shop all jerseys
               <span className="grid size-7 place-items-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5"><ArrowRight size={15} /></span>
             </Link>
@@ -147,7 +141,6 @@ export default function Home() {
         </motion.section>
 
         <motion.section
-          ref={processRef}
           className="relative isolate overflow-hidden bg-transparent pb-14 pt-6 sm:pb-20 sm:pt-9"
         initial={prefersReducedMotion ? false : "hidden"}
         whileInView={prefersReducedMotion ? undefined : "visible"}
@@ -155,8 +148,9 @@ export default function Home() {
       >
         <motion.div
           aria-hidden="true"
-          style={{ x: prefersReducedMotion ? undefined : processParallaxX }}
-          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[150px] font-black tracking-[-0.08em] text-white/[0.018] sm:text-[220px]"
+          animate={prefersReducedMotion ? undefined : { x: [-18, 18, -18] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[150px] font-semibold tracking-[-0.06em] text-white/[0.018] sm:text-[220px]"
         >
           TISA
         </motion.div>
@@ -176,11 +170,11 @@ export default function Home() {
               whileHover={prefersReducedMotion ? undefined : { y: -5 }}
               className="group relative flex min-h-40 gap-4 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_12px_35px_rgba(0,0,0,0.12)] backdrop-blur transition-[border-color,background-color,box-shadow] duration-300 hover:border-[#ff4550]/55 hover:bg-white/[0.07] hover:shadow-[0_18px_42px_rgba(225,7,20,0.14)] sm:p-6"
             >
-              <span className="absolute right-4 top-2 text-5xl font-black tracking-[-0.08em] text-white/[0.045] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:text-[#ff4550]/35">0{index + 1}</span>
+              <span className="absolute right-4 top-2 text-5xl font-medium tracking-[-0.06em] text-white/[0.05] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:text-[#ff4550]/35">0{index + 1}</span>
               <div className="relative flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/[0.08] text-[#ff4550] ring-1 ring-white/10 transition-all group-hover:scale-105 group-hover:bg-[#E10714] group-hover:text-white"><item.icon size={19} /></div>
               <div className="relative pt-1">
-                <h2 className="text-base font-bold tracking-tight">{item.title}</h2>
-                <p className="mt-1 text-sm leading-6 text-white/45">{item.text}</p>
+                <h2 className="text-base font-medium tracking-[-0.01em]">{item.title}</h2>
+                <p className="mt-1 text-sm leading-6 text-white/58">{item.text}</p>
               </div>
               <span className="absolute inset-x-5 bottom-0 h-px origin-left scale-x-0 bg-[#ff4550] transition-transform duration-300 group-hover:scale-x-100" />
             </motion.div>
