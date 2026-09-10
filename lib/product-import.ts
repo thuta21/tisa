@@ -2,9 +2,11 @@ import type * as XLSX from "xlsx";
 
 export const productImportKits = ["home", "away", "third"] as const;
 export const productImportStatuses = ["draft", "active", "archived"] as const;
+export const productImportSleeves = ["short", "long"] as const;
 
 export type ProductImportKit = (typeof productImportKits)[number];
 export type ProductImportStatus = (typeof productImportStatuses)[number];
+export type ProductImportSleeve = (typeof productImportSleeves)[number];
 
 export type ProductImportReference = {
   leagues: { id: string; name: string }[];
@@ -32,7 +34,7 @@ export type ProductImportVariantRow = {
   image_front_path: string;
   image_back_path: string;
   image_arm_path: string;
-  stockBySize: Record<string, number>;
+  stockBySize: Record<string, number | null>;
 };
 
 export type ProductImportRow = {
@@ -49,6 +51,7 @@ export type ProductImportRow = {
   countryColors: string;
   featured: boolean;
   status: ProductImportStatus;
+  sleeve: ProductImportSleeve;
   variants: Record<ProductImportKit, ProductImportVariantRow>;
   existingProductId: string | null;
   matchedBy: "slug" | "sku" | null;
@@ -76,6 +79,7 @@ type XlsxModule = typeof import("xlsx");
 const baseHeaders = [
   "slug",
   "product_name",
+  "sleeve",
   "league",
   "team",
   "season",
@@ -134,7 +138,7 @@ function buildStockHeader(kit: ProductImportKit, sizeLabel: string) {
   return `${kit}_stock_${sizeLabel}`;
 }
 
-export function buildProductImportHeaders(sizeLabels: string[]) {
+export function buildProductImportHeaders() {
   const headers = [...baseHeaders];
 
   for (const kit of productImportKits) {
@@ -148,9 +152,6 @@ export function buildProductImportHeaders(sizeLabels: string[]) {
       `${kit}_arm_image`,
     );
 
-    for (const sizeLabel of sizeLabels) {
-      headers.push(buildStockHeader(kit, sizeLabel));
-    }
   }
 
   return headers;
@@ -170,6 +171,7 @@ function buildReferenceRows(reference: ProductImportReference) {
   for (const season of reference.seasons) rows.push(["season", season.name, ""]);
   for (const size of getSortedSizeLabels(reference).map((label) => ({ label }))) rows.push(["size", size.label, ""]);
   for (const status of productImportStatuses) rows.push(["status", status, ""]);
+  for (const sleeve of productImportSleeves) rows.push(["sleeve", sleeve, ""]);
   rows.push(["yes_no", "yes", ""], ["yes_no", "no", ""]);
 
   return rows;
@@ -181,8 +183,7 @@ function setColumnWidths(sheet: XLSX.WorkSheet, headers: string[]) {
 
 export async function downloadProductImportTemplate(reference: ProductImportReference) {
   const XLSX = await import("xlsx");
-  const sizeLabels = getSortedSizeLabels(reference);
-  const headers = buildProductImportHeaders(sizeLabels);
+  const headers = buildProductImportHeaders();
   const productsSheet = XLSX.utils.aoa_to_sheet([headers]);
   setColumnWidths(productsSheet, headers);
 
@@ -264,7 +265,7 @@ export async function parseProductImportFile(
   }
 
   const XLSX = await import("xlsx");
-  const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", sheetRows: 502 });
   const sheet = findProductsSheet(XLSX, workbook);
   if (!sheet) {
     return {
@@ -294,7 +295,7 @@ export async function parseProductImportFile(
   const rowsBySlug = new Map<string, number>();
   const skusByRowSlug = new Map<string, { rowNumber: number; slug: string }>();
 
-  for (const header of ["product_name", "league", "team", "season", "base_price"]) {
+  for (const header of ["product_name", "sleeve", "base_price", "status"]) {
     if (!headerIndexes.has(normalizeHeader(header))) {
       issues.push({ rowNumber: 1, field: header, message: `Missing required column: ${header}.` });
     }
@@ -308,6 +309,7 @@ export async function parseProductImportFile(
     const rowNumber = dataIndex + 2;
     const rowIssuesStart = issues.length;
     const name = cellToString(getCell(row, headerIndexes, "product_name"));
+    const sleeveText = cellToString(getCell(row, headerIndexes, "sleeve")).toLowerCase();
     const slug = cellToString(getCell(row, headerIndexes, "slug")) || slugifyImport(name);
     const leagueName = cellToString(getCell(row, headerIndexes, "league"));
     const teamName = cellToString(getCell(row, headerIndexes, "team"));
@@ -318,16 +320,19 @@ export async function parseProductImportFile(
     const variants = {} as Record<ProductImportKit, ProductImportVariantRow>;
 
     if (!name) issues.push({ rowNumber, field: "product_name", message: "Product name is required." });
+    if (!productImportSleeves.includes(sleeveText as ProductImportSleeve)) {
+      issues.push({ rowNumber, field: "sleeve", message: "Sleeve must be short or long." });
+    }
     if (!slug) issues.push({ rowNumber, field: "slug", message: "Slug could not be generated." });
-    if (!leagueName) issues.push({ rowNumber, field: "league", message: "League is required." });
-    if (!teamName) issues.push({ rowNumber, field: "team", message: "Team is required." });
-    if (!seasonName) issues.push({ rowNumber, field: "season", message: "Season is required." });
-    if (basePrice === null || basePrice < 0) {
+    if (basePrice !== null && basePrice < 0) {
       issues.push({ rowNumber, field: "base_price", message: "Base price must be a number greater than or equal to 0." });
     }
     if (!featuredParse.valid) issues.push({ rowNumber, field: "featured", message: "Use yes/no or true/false." });
     if (!productImportStatuses.includes(statusText as ProductImportStatus)) {
       issues.push({ rowNumber, field: "status", message: "Status must be draft, active, or archived." });
+    }
+    if (statusText === "active" && (!leagueName || !teamName || !seasonName || !basePrice || basePrice <= 0)) {
+      issues.push({ rowNumber, field: "status", message: "Active products require league, team, season and a positive base price. Use draft while data is incomplete." });
     }
 
     const selectedLeague = leaguesByName.get(normalizeLookupValue(leagueName));
@@ -357,11 +362,12 @@ export async function parseProductImportFile(
     }
 
     for (const kit of productImportKits) {
-      const stockBySize: Record<string, number> = {};
+      const stockBySize: Record<string, number | null> = {};
       let stockTotal = 0;
       for (const sizeLabel of sizeLabels) {
         const stockCell = getCell(row, headerIndexes, buildStockHeader(kit, sizeLabel));
-        const stock = stockCell === "" ? 0 : toNumberCell(stockCell);
+        const stock = stockCell === "" ? null : toNumberCell(stockCell);
+        if (stockCell === "") { stockBySize[sizeLabel] = null; continue; }
         if (stock === null || stock < 0 || !Number.isInteger(stock)) {
           issues.push({ rowNumber, field: buildStockHeader(kit, sizeLabel), message: "Stock must be a whole number greater than or equal to 0." });
           stockBySize[sizeLabel] = 0;
@@ -378,7 +384,10 @@ export async function parseProductImportFile(
       const backImage = cellToString(getCell(row, headerIndexes, `${kit}_back_image`));
       const armImage = cellToString(getCell(row, headerIndexes, `${kit}_arm_image`));
       const hasKitData = Boolean(variantName || sku || frontImage || backImage || armImage || variantPrice !== null || stockTotal > 0);
-      const availableParse = parseBooleanCell(getCell(row, headerIndexes, `${kit}_available`), kit === "home" || hasKitData);
+      const availableParse = parseBooleanCell(
+        getCell(row, headerIndexes, `${kit}_available`),
+        statusText === "active" && (kit === "home" || hasKitData),
+      );
 
       if (!availableParse.valid) issues.push({ rowNumber, field: `${kit}_available`, message: "Use yes/no or true/false." });
       if (variantPrice !== null && variantPrice < 0) {
@@ -453,6 +462,7 @@ export async function parseProductImportFile(
         countryColors: cellToString(getCell(row, headerIndexes, "country_colors")),
         featured: featuredParse.value,
         status: statusText as ProductImportStatus,
+        sleeve: sleeveText as ProductImportSleeve,
         variants,
         existingProductId,
         matchedBy,

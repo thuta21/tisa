@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Check, ClipboardCheck, ShieldCheck } from "lucide-react";
@@ -9,6 +9,7 @@ import Footer from "@/components/jersey/Footer";
 import { useCart } from "@/lib/CartContext";
 import { formatPriceAED, getJerseyById, getJerseyKitImage, kitImageFilters, kitOptions } from "@/lib/jerseys";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { buildCheckoutRpcItems } from "@/lib/checkout";
 
 type PaymentMethod = { id: string; name: string; slug: string; is_active: boolean; sort_order: number };
 
@@ -26,6 +27,7 @@ export default function Checkout() {
   const [submittedOrder, setSubmittedOrder] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const checkoutTokenRef = useRef<string | null>(null);
   const hasStalePhysicalItems = items.some((item) => item.size !== "Font File" && (!item.productId || !item.variantId));
 
   useEffect(() => {
@@ -55,91 +57,53 @@ export default function Checkout() {
     }
 
     const formData = new FormData(event.currentTarget);
-    const reference = `TISA-${Date.now().toString().slice(-6)}`;
-    const deliveryFee = 0;
     const supabase = createSupabaseBrowserClient();
-    const { data: userData } = await supabase.auth.getUser();
+    const customerName = String(formData.get("name") || "").trim();
+    const customerPhone = String(formData.get("phone") || "").trim();
+    const region = String(formData.get("region") || "").trim();
+    const deliveryAddress = String(formData.get("address") || "").trim();
 
-    const orderPayload = {
-      order_number: reference,
-      customer_name: String(formData.get("name") || "").trim(),
-      customer_phone: String(formData.get("phone") || "").trim(),
-      customer_email: String(formData.get("email") || "").trim() || null,
-      customer_id: userData.user?.id ?? null,
-      country: String(formData.get("country") || "United Arab Emirates").trim(),
-      region: String(formData.get("region") || "").trim(),
-      delivery_address: String(formData.get("address") || "").trim(),
-      subtotal,
-      delivery_fee: deliveryFee,
-      total: subtotal + deliveryFee,
-      status: "awaiting_payment",
-      delivery_status: "pending",
-      payment_method: paymentMethod,
-      customer_note: String(formData.get("note") || "").trim() || null,
-      admin_note: null,
-    };
-
-    if (!orderPayload.customer_name || !orderPayload.customer_phone || !orderPayload.region || !orderPayload.delivery_address || !paymentMethod) {
+    if (!customerName || !customerPhone || !region || !deliveryAddress || !paymentMethod) {
       setSubmitError("Please complete the delivery details and choose a payment preference.");
       setSubmitting(false);
       return;
     }
 
-    const orderResult = await supabase.from("orders").insert(orderPayload).select("id").single();
-    if (orderResult.error || !orderResult.data) {
-      setSubmitError(orderResult.error?.message ?? "Failed to create order.");
+    let checkoutItems;
+    try {
+      checkoutItems = buildCheckoutRpcItems(items);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Your bag contains an invalid item.");
       setSubmitting(false);
       return;
     }
 
-    const orderId = orderResult.data.id as string;
-    const orderItems = items.flatMap((item) => {
-      const isFont = item.size === "Font File";
-      const jersey = !isFont ? getJerseyById(item.jerseyId) : null;
-      if (!isFont && !item.productId) return [];
-
-      const addOns = (item.customizationFee ?? 0) + (item.armBadgeFee ?? 0);
-      const unitTotal = item.unitPrice + addOns;
-      const kitLabel = isFont
-        ? "Digital Font File"
-        : item.variantName ?? kitOptions.find((kit) => kit.id === item.kit)?.label ?? item.kit;
-
-      return [{
-        order_id: orderId,
-        product_id: isFont ? null : item.productId ?? null,
-        variant_id: isFont ? null : item.variantId ?? null,
-        product_name: isFont ? `${item.customName} Custom Font` : item.productName ?? jersey?.name ?? "Jersey",
-        kit_name: kitLabel,
-        size: item.size,
-        custom_name: item.customName ?? null,
-        custom_number: item.customNumber ?? null,
-        font_slug: isFont ? item.customNumber ?? null : item.fontSlug ?? null,
-        arm_badge: item.armBadge ?? null,
-        customization_fee: item.customizationFee ?? 0,
-        arm_badge_fee: item.armBadgeFee ?? 0,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        line_total: unitTotal * item.quantity,
-      }];
+    const checkoutToken = checkoutTokenRef.current ?? crypto.randomUUID();
+    checkoutTokenRef.current = checkoutToken;
+    const { data, error } = await supabase.rpc("create_checkout_order", {
+      p_checkout_token: checkoutToken,
+      p_customer_name: customerName,
+      p_customer_phone: customerPhone,
+      p_customer_email: String(formData.get("email") || "").trim() || null,
+      p_country: String(formData.get("country") || "United Arab Emirates").trim(),
+      p_region: region,
+      p_delivery_address: deliveryAddress,
+      p_payment_method: paymentMethod,
+      p_customer_note: String(formData.get("note") || "").trim() || null,
+      p_items: checkoutItems,
     });
 
-    const itemsResult = await supabase.from("order_items").insert(orderItems);
-    if (itemsResult.error) {
-      setSubmitError(itemsResult.error.message.includes("Insufficient stock")
+    if (error || !data || typeof data !== "object" || !("order_number" in data)) {
+      const message = error?.message ?? "Failed to create order.";
+      setSubmitError(message.includes("Insufficient stock")
         ? "One or more selected jerseys are no longer available in the requested quantity. Please update your bag and try again."
-        : itemsResult.error.message);
+        : message);
       setSubmitting(false);
       return;
     }
 
-    await supabase.from("order_status_history").insert({
-      order_id: orderId,
-      from_status: null,
-      to_status: "awaiting_payment",
-      note: `Order request submitted with ${paymentMethod} selected.`,
-    });
-
-    setSubmittedOrder(reference);
+    setSubmittedOrder(String(data.order_number));
+    checkoutTokenRef.current = null;
     clearCart();
     setSubmitting(false);
     window.scrollTo({ top: 0, behavior: "smooth" });

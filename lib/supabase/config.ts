@@ -11,5 +11,6 @@ const supabasePublishableKey = requirePublicEnv(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
 );
+const googleAuthEnabled = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === "true";
 
-export { supabasePublishableKey, supabaseUrl };
+export { googleAuthEnabled, supabasePublishableKey, supabaseUrl };

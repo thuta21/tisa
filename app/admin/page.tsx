@@ -1,3 +1,5 @@
-import AdminDashboard from "@/app/pages/AdminDashboard";
+import { redirect } from "next/navigation";
 
-export default AdminDashboard;
+export default function AdminIndexPage() {
+  redirect("/admin/overview");
+}

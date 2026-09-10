@@ -1,0 +1,3 @@
+import {adminClient,apiError} from '@/lib/inventory/server';
+export async function GET(){try{const db=await adminClient();const statuses=['pending','indexing','ready','failed'];const counts=await Promise.all(statuses.map(async status=>{const {count,error}=await db.from('knowledge_documents').select('id',{count:'exact',head:true}).eq('status',status);if(error)throw error;return {status,count:count??0};}));return Response.json(counts);}catch(e){return apiError(e);}}
+export async function POST(request:Request){try{const db=await adminClient(request);const {error}=await db.rpc('reindex_catalog');if(error)throw error;return Response.json({queued:true});}catch(e){return apiError(e);}}

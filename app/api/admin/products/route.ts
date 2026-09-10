@@ -1,0 +1,3 @@
+import {adminClient,apiError} from '@/lib/inventory/server';
+export async function POST(request:Request){try{const db=await adminClient(request);const body=await request.json();const {data,error}=await db.rpc('save_catalog',{p_records:[body],p_import:false});if(error)throw error;return Response.json({id:data[0]});}catch(e){return apiError(e);}}
+export async function DELETE(request:Request){try{const db=await adminClient(request);const {id}=await request.json();const {data,error}=await db.rpc('archive_product',{p_product_id:id});if(error)throw error;return Response.json(data);}catch(e){return apiError(e);}}

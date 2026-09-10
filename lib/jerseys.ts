@@ -24,6 +24,7 @@ export type Jersey = {
   id: string;
   name: string;
   team: string;
+  teamLogoPath?: string | null;
   category: string;
   league: string;
   collection: string;

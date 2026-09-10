@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { getSafeRedirectPath } from "@/lib/auth/redirect";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const requestedNext = requestUrl.searchParams.get("next");
-  const nextPath = requestedNext?.startsWith("/") && !requestedNext.startsWith("//") ? requestedNext : "/";
+  const nextPath = getSafeRedirectPath(requestedNext);
   const response = NextResponse.redirect(new URL(nextPath, requestUrl.origin));
 
   if (!code) return NextResponse.redirect(new URL("/login?error=missing_callback_code", requestUrl.origin));

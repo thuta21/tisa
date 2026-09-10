@@ -14,84 +14,15 @@ import {
   type Jersey,
   type KitVariant,
 } from "@/lib/jerseys";
+import type { CatalogLeague, CatalogTeam } from "@/lib/products";
+import TeamLogo from "@/components/jersey/TeamLogo";
+import LeagueLogo from "@/components/jersey/LeagueLogo";
 
 type FeaturedJerseyShowcaseProps = {
   jerseys: Jersey[];
+  catalogTeams: CatalogTeam[];
+  catalogLeagues: CatalogLeague[];
   onSelect: (jersey: Jersey) => void;
-};
-
-const teamLogoPaths: Record<string, string> = {
-  argentina: "/assets/team-logos/world-cup/argentina.png",
-  arsenal: "/assets/team-logos/premier-league/arsenal.png",
-  "atletico madrid": "/assets/team-logos/la-liga/atletico-madrid.png",
-  "aston villa": "/assets/team-logos/premier-league/aston-villa.png",
-  barcelona: "/assets/team-logos/la-liga/barcelona.png",
-  bournemouth: "/assets/team-logos/premier-league/bournemouth.png",
-  brazil: "/assets/team-logos/world-cup/brazil.png",
-  brentford: "/assets/team-logos/premier-league/brentford.png",
-  "brighton & hove albion": "/assets/team-logos/premier-league/brighton-and-hove-albion.png",
-  chelsea: "/assets/team-logos/premier-league/chelsea.png",
-  "coventry city": "/assets/team-logos/premier-league/coventry-city.png",
-  "crystal palace": "/assets/team-logos/premier-league/crystal-palace.png",
-  everton: "/assets/team-logos/premier-league/everton.png",
-  france: "/assets/team-logos/world-cup/france.png",
-  fulham: "/assets/team-logos/premier-league/fulham.png",
-  germany: "/assets/team-logos/world-cup/germany.png",
-  "hull city": "/assets/team-logos/premier-league/hull-city.png",
-  "ipswich town": "/assets/team-logos/premier-league/ipswich-town.png",
-  "leeds united": "/assets/team-logos/premier-league/leeds-united.png",
-  liverpool: "/assets/team-logos/premier-league/liverpool.png",
-  "manchester city": "/assets/team-logos/premier-league/manchester-city.png",
-  "manchester united": "/assets/team-logos/premier-league/manchester-united.png",
-  "newcastle united": "/assets/team-logos/premier-league/newcastle-united.png",
-  "nottingham forest": "/assets/team-logos/premier-league/nottingham-forest.png",
-  portugal: "/assets/team-logos/world-cup/portugal.png",
-  "real madrid": "/assets/team-logos/la-liga/real-madrid.png",
-  spain: "/assets/team-logos/world-cup/spain.png",
-  sunderland: "/assets/team-logos/premier-league/sunderland.png",
-  "tottenham hotspur": "/assets/team-logos/premier-league/tottenham-hotspur.png",
-};
-
-const premierLeagueTeams = [
-  "Arsenal",
-  "Aston Villa",
-  "Bournemouth",
-  "Brentford",
-  "Brighton & Hove Albion",
-  "Chelsea",
-  "Coventry City",
-  "Crystal Palace",
-  "Everton",
-  "Fulham",
-  "Hull City",
-  "Ipswich Town",
-  "Leeds United",
-  "Liverpool",
-  "Manchester City",
-  "Manchester United",
-  "Newcastle United",
-  "Nottingham Forest",
-  "Sunderland",
-  "Tottenham Hotspur",
-] as const;
-
-const laLigaTeams = [
-  "Atletico Madrid",
-  "Barcelona",
-  "Real Madrid",
-] as const;
-
-const leagueTeamNames: Record<string, readonly string[]> = {
-  "la liga": laLigaTeams,
-  "premier league": premierLeagueTeams,
-};
-
-const configuredLeagueNames = ["Premier League", "World Cup", "La Liga"];
-
-const leagueLogoPaths: Record<string, string> = {
-  "la liga": "/assets/league-logos/la-liga.png",
-  "premier league": "/assets/league-logos/premier-league.png",
-  "world cup": "/assets/league-logos/world-cup.png",
 };
 
 function unique(values: string[]) {
@@ -136,7 +67,7 @@ function colorWithAlpha(color: string, alpha: number) {
   return `color-mix(in srgb, ${value} ${Math.round(alpha * 100)}%, transparent)`;
 }
 
-export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJerseyShowcaseProps) {
+export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogLeagues, onSelect }: FeaturedJerseyShowcaseProps) {
   const firstJersey = jerseys[0];
   const [selectedLeague, setSelectedLeague] = useState(firstJersey?.league ?? "");
   const [selectedTeam, setSelectedTeam] = useState(firstJersey?.team ?? "");
@@ -150,8 +81,12 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
   const [comingSoonTeam, setComingSoonTeam] = useState<string | null>(null);
 
   const leagues = useMemo(
-    () => unique([...configuredLeagueNames, ...jerseys.map((jersey) => jersey.league)]),
-    [jerseys],
+    () => unique([
+      ...catalogLeagues.map((league) => league.name),
+      ...catalogTeams.map((team) => team.leagues?.name ?? ""),
+      ...jerseys.map((jersey) => jersey.league),
+    ]),
+    [catalogLeagues, catalogTeams, jerseys],
   );
   const filteredLeagues = useMemo(() => {
     const query = leagueSearch.trim().toLowerCase();
@@ -162,11 +97,13 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
     [jerseys, selectedLeague],
   );
   const teams = useMemo(() => {
-    const configuredTeams = leagueTeamNames[selectedLeague.trim().toLowerCase()] ?? [];
     const teamNames = new Map<string, string>();
     const productTeamKeys = new Set(leagueJerseys.map((jersey) => getTeamKey(jersey.team)));
+    const databaseTeams = catalogTeams
+      .filter((team) => team.leagues?.name === selectedLeague)
+      .map((team) => team.name);
 
-    [...configuredTeams, ...leagueJerseys.map((jersey) => jersey.team)].forEach((team) => {
+    [...databaseTeams, ...leagueJerseys.map((jersey) => jersey.team)].forEach((team) => {
       const key = getTeamKey(team);
       if (!teamNames.has(key)) teamNames.set(key, team);
     });
@@ -181,7 +118,23 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
 
       return firstTeam.localeCompare(secondTeam, "en", { sensitivity: "base" });
     });
-  }, [leagueJerseys, selectedLeague]);
+  }, [catalogTeams, leagueJerseys, selectedLeague]);
+  const logoPathsByTeam = useMemo(() => {
+    const logoPaths = new Map<string, string>();
+    catalogTeams.forEach((team) => {
+      if (team.logo_path) logoPaths.set(getTeamKey(team.name), team.logo_path);
+    });
+    jerseys.forEach((jersey) => {
+      if (jersey.teamLogoPath && !logoPaths.has(getTeamKey(jersey.team))) {
+        logoPaths.set(getTeamKey(jersey.team), jersey.teamLogoPath);
+      }
+    });
+    return logoPaths;
+  }, [catalogTeams, jerseys]);
+  const logoPathsByLeague = useMemo(
+    () => new Map(catalogLeagues.filter((league) => league.logo_path).map((league) => [league.name.trim().toLowerCase(), league.logo_path])),
+    [catalogLeagues],
+  );
   const availableTeamKeys = useMemo(
     () => new Set(leagueJerseys.map((jersey) => getTeamKey(jersey.team))),
     [leagueJerseys],
@@ -226,8 +179,8 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
   const secondaryColor = colors[1] ?? "#f5f5f5";
   const accentColor = colors[2] ?? primaryColor;
   const selectedPrice = getJerseyKitPrice(selectedJersey, activeKit);
-  const selectedLeagueLogo = leagueLogoPaths[selectedLeague.trim().toLowerCase()];
-  const selectedTeamLogo = teamLogoPaths[getTeamKey(selectedJersey.team)];
+  const selectedLeagueLogo = logoPathsByLeague.get(selectedLeague.trim().toLowerCase());
+  const selectedTeamLogo = logoPathsByTeam.get(getTeamKey(selectedJersey.team));
   const selectedKitData = selectedJersey.kits[activeKit] as typeof selectedJersey.kits[typeof activeKit] & {
     sizes?: string[];
     stock?: number;
@@ -236,7 +189,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
 
   const selectLeague = (league: string) => {
     const nextJersey = jerseys.find((jersey) => jersey.league === league);
-    const configuredTeams = leagueTeamNames[league.trim().toLowerCase()] ?? [];
+    const firstDatabaseTeam = catalogTeams.find((team) => team.leagues?.name === league);
     setComingSoonTeam(null);
     setSelectedLeague(league);
 
@@ -246,7 +199,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
       return;
     }
 
-    setSelectedTeam(configuredTeams[0] ?? "");
+    setSelectedTeam(firstDatabaseTeam?.name ?? "");
     setSelectedSeason("");
   };
 
@@ -292,7 +245,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
               <span className="flex min-w-0 items-center gap-2.5">
                 {selectedLeagueLogo && (
                   <span className="relative size-6 shrink-0">
-                    <Image src={selectedLeagueLogo} alt="" fill sizes="24px" className="object-contain" />
+                    <LeagueLogo logoPath={selectedLeagueLogo} alt="" sizes="24px" className="object-contain" />
                   </span>
                 )}
                 <span className="truncate">{selectedLeague}</span>
@@ -351,7 +304,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
                     {filteredLeagues.length > 0 ? filteredLeagues.map((league, index) => {
                       const selected = league === selectedLeague;
                       const highlighted = index === highlightedLeagueIndex;
-                      const leagueLogo = leagueLogoPaths[league.trim().toLowerCase()];
+                      const leagueLogo = logoPathsByLeague.get(league.trim().toLowerCase());
                       return (
                         <button
                           key={league}
@@ -365,7 +318,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
                           <span className="flex min-w-0 items-center gap-2.5">
                             {leagueLogo && (
                               <span className="relative size-6 shrink-0">
-                                <Image src={leagueLogo} alt="" fill sizes="24px" className="object-contain" />
+                                <LeagueLogo logoPath={leagueLogo} alt="" sizes="24px" className="object-contain" />
                               </span>
                             )}
                             <span className="truncate">{league}</span>
@@ -390,7 +343,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
               const teamKey = getTeamKey(team);
               const available = availableTeamKeys.has(teamKey);
               const active = available && teamKey === getTeamKey(selectedTeam);
-              const teamLogo = teamLogoPaths[teamKey];
+              const teamLogo = logoPathsByTeam.get(teamKey);
               return (
                 <button
                   key={team}
@@ -404,7 +357,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
                 >
                   {teamLogo ? (
                     <span className="relative size-8 shrink-0">
-                      <Image src={teamLogo} alt="" fill sizes="32px" className="object-contain" />
+                      <TeamLogo logoPath={teamLogo} alt="" sizes="32px" className="object-contain" />
                     </span>
                   ) : (
                     <span aria-hidden="true" className="text-xs font-black uppercase tracking-tight">
@@ -454,11 +407,10 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
               className="absolute left-5 top-[calc(100%+0.75rem)] z-20 flex w-[min(340px,calc(100%-2.5rem))] items-center gap-3 rounded-2xl border border-black/10 bg-white/95 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:left-6"
             >
               <span className="relative grid size-11 shrink-0 place-items-center rounded-xl bg-neutral-100">
-                {teamLogoPaths[getTeamKey(comingSoonTeam)] ? (
-                  <Image
-                    src={teamLogoPaths[getTeamKey(comingSoonTeam)]}
+                {logoPathsByTeam.get(getTeamKey(comingSoonTeam)) ? (
+                  <TeamLogo
+                    logoPath={logoPathsByTeam.get(getTeamKey(comingSoonTeam))}
                     alt=""
-                    fill
                     sizes="44px"
                     className="object-contain p-2"
                   />
@@ -554,10 +506,9 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
                   transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                   className="relative size-11 shrink-0 overflow-hidden rounded-[13px] border border-black/[0.08] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.07)]"
                 >
-                  <Image
-                    src={selectedTeamLogo}
+                  <TeamLogo
+                    logoPath={selectedTeamLogo}
                     alt=""
-                    fill
                     sizes="44px"
                     className="object-contain p-2.5"
                   />
@@ -633,7 +584,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               {teams.map((team) => {
-                const teamLogo = teamLogoPaths[getTeamKey(team)];
+                const teamLogo = logoPathsByTeam.get(getTeamKey(team));
                 return (
                   <button
                     key={team}
@@ -645,7 +596,7 @@ export default function FeaturedJerseyShowcase({ jerseys, onSelect }: FeaturedJe
                   >
                     {teamLogo ? (
                       <span className="relative size-12">
-                        <Image src={teamLogo} alt="" fill sizes="48px" className="object-contain" />
+                        <TeamLogo logoPath={teamLogo} alt="" sizes="48px" className="object-contain" />
                       </span>
                     ) : (
                       <span className="text-sm font-black text-neutral-400">

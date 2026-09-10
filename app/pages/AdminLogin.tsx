@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSafeAdminRedirectPath } from "@/lib/auth/redirect";
 
 function getAdminNextPath() {
   if (typeof window === "undefined") return "/admin";
   const params = new URLSearchParams(window.location.search);
-  const next = params.get("next");
-  return next?.startsWith("/admin") && !next.startsWith("//") ? next : "/admin";
+  return getSafeAdminRedirectPath(params.get("next"));
 }
 
 export default function AdminLogin() {

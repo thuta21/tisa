@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import { useCart } from "@/lib/CartContext";
@@ -145,10 +146,13 @@ export default function FontShop() {
                         <span className="absolute left-3 top-2 text-xs font-medium text-muted-foreground select-none">
                           Preview image
                         </span>
-                        <img
+                        <Image
                           src={getFontPreviewUrl(font, previewText)}
                           alt={`${font.name} preview`}
-                          className="h-full w-full object-cover select-none"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          unoptimized
+                          className="object-cover select-none"
                           draggable={false}
                         />
                       </div>

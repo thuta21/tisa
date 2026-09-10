@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Lock, Loader2, AlertTriangle } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getPasswordValidationError } from "@/lib/auth/password";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -28,11 +29,17 @@ export default function ResetPassword() {
       setError("Passwords do not match");
       return;
     }
+    const passwordError = getPasswordValidationError(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
+      await supabase.auth.signOut({ scope: "local" });
       window.location.assign("/login?reset=success");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to reset password");

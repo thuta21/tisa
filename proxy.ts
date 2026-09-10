@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { getSafeAdminRedirectPath } from "@/lib/auth/redirect";
 
 function redirectToLogin(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -32,17 +33,22 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const isAdminPath = request.nextUrl.pathname === "/admin" || request.nextUrl.pathname.startsWith("/admin/");
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
 
-  if (userError || !userData.user) {
+  // Public routes still pass through Proxy so Supabase can refresh auth cookies.
+  // Authorization redirects apply only to the admin route group.
+  if (!isAdminPath) return response;
+
+  if (claimsError || !claimsData?.claims?.sub) {
     return isLoginPage ? response : redirectToLogin(request);
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", userData.user.id)
+    .eq("id", claimsData.claims.sub)
     .maybeSingle();
 
   const isAdmin = !profileError && profile?.role === "admin";
@@ -52,8 +58,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isLoginPage) {
-    const nextPath = request.nextUrl.searchParams.get("next");
-    const safeNextPath = nextPath?.startsWith("/admin") && !nextPath.startsWith("//") ? nextPath : "/admin";
+    const safeNextPath = getSafeAdminRedirectPath(request.nextUrl.searchParams.get("next"));
     return NextResponse.redirect(new URL(safeNextPath, request.url));
   }
 
@@ -61,5 +66,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf)$).*)",
+  ],
 };

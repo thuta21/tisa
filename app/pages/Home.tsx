@@ -8,8 +8,14 @@ import { ArrowRight, BadgeCheck, ClipboardCheck, Ruler } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import FeaturedJerseyShowcase from "@/components/jersey/FeaturedJerseyShowcase";
-import { jerseys as fallbackJerseys, type Jersey } from "@/lib/jerseys";
-import { loadCatalogJerseys } from "@/lib/products";
+import type { Jersey } from "@/lib/jerseys";
+import {
+  loadCatalogJerseys,
+  loadCatalogLeagues,
+  loadCatalogTeams,
+  type CatalogLeague,
+  type CatalogTeam,
+} from "@/lib/products";
 
 export default function Home() {
   const router = useRouter();
@@ -21,25 +27,23 @@ export default function Home() {
   });
   const processParallaxX = useTransform(processScroll, [0, 1], [-70, 70]);
   const [jerseys, setJerseys] = useState<Jersey[]>([]);
+  const [catalogTeams, setCatalogTeams] = useState<CatalogTeam[]>([]);
+  const [catalogLeagues, setCatalogLeagues] = useState<CatalogLeague[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    loadCatalogJerseys()
-      .then((items) => {
+    Promise.all([loadCatalogJerseys(), loadCatalogTeams(), loadCatalogLeagues()])
+      .then(([items, teams, leagues]) => {
         if (!mounted) return;
 
-        const featuredItems = items.filter((item) => item.featured);
-        setJerseys(
-          featuredItems.length > 0
-            ? featuredItems
-            : items.length > 0
-              ? items
-              : fallbackJerseys.filter((item) => item.featured),
-        );
+        setCatalogTeams(teams);
+        setCatalogLeagues(leagues);
+
+        setJerseys(items);
       })
       .catch(() => {
-        if (mounted) setJerseys(fallbackJerseys.filter((item) => item.featured));
+        if (mounted) setJerseys([]);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -67,6 +71,8 @@ export default function Home() {
         {jerseys.length > 0 ? (
           <FeaturedJerseyShowcase
             jerseys={jerseys}
+            catalogTeams={catalogTeams}
+            catalogLeagues={catalogLeagues}
             onSelect={(jersey) => {
               if ("slug" in jersey && typeof jersey.slug === "string") {
                 router.push(`/jersey/${jersey.slug}`);

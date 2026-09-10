@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
+import InventoryWorkspace from "@/components/admin/InventoryWorkspace";
+import ProductExcelImport from "@/components/admin/ProductExcelImport";
+import DatabaseRebuildWorkspace from "@/components/admin/DatabaseRebuildWorkspace";
+import AdminDashboardSkeleton from "@/components/admin/AdminDashboardSkeleton";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -12,11 +16,11 @@ import {
   Boxes,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Clock3,
   CreditCard,
-  Download,
   Edit3,
   Eye,
   LayoutDashboard,
@@ -40,21 +44,30 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type DbFont } from "@/lib/jerseys";
-import {
-  downloadProductImportTemplate,
-  parseProductImportFile,
-  productImportKits,
-  type ProductImportPreview,
-  type ProductImportReference,
-  type ProductImportRow,
-} from "@/lib/product-import";
+import TeamLogo from "@/components/jersey/TeamLogo";
+import { teamLogoBucket } from "@/lib/team-logos";
+import LeagueLogo from "@/components/jersey/LeagueLogo";
+import { leagueLogoBucket } from "@/lib/league-logos";
+
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
-type AdminTab = "overview" | "orders" | "products" | "inventory" | "payments" | "print" | "settings";
+async function adminOrderAction(body: Record<string, unknown>) {
+  const response = await fetch("/api/admin/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "Order request failed.");
+  return result;
+}
+
+type AdminTab = "overview" | "orders" | "products" | "inventory" | "payments" | "print" | "settings" | "migration";
 type SettingSection = "leagues" | "sizes" | "teams" | "seasons" | "charges" | "payment_methods" | "fonts";
 type KitVariant = "home" | "away" | "third";
 type ProductStatus = "draft" | "active" | "archived";
+type ProductSleeve = "short" | "long";
 type OrderStatus =
   | "awaiting_payment"
   | "verification_pending"
@@ -184,12 +197,14 @@ type DbInventory = {
   quantity: number;
   reserved: number;
   is_active?: boolean;
+  version?: number;
 };
 
 type DbLeague = {
   id: string;
   name: string;
   slug: string;
+  logo_path: string | null;
   sort_order: number;
 };
 
@@ -228,6 +243,7 @@ type DbTeam = {
   name: string;
   slug: string;
   country: string | null;
+  logo_path: string | null;
   sort_order: number;
   leagues?: Pick<DbLeague, "id" | "name"> | null;
 };
@@ -267,7 +283,9 @@ type DbProduct = {
   country_colors: string[];
   featured: boolean;
   status: ProductStatus;
+  sleeve: ProductSleeve;
   created_at: string;
+  updated_at?: string;
   leagues?: Pick<DbLeague, "id" | "name"> | null;
   teams?: Pick<DbTeam, "id" | "name"> | null;
   seasons?: Pick<DbSeason, "id" | "name"> | null;
@@ -304,6 +322,7 @@ type ProductFormState = {
   country_colors: string;
   featured: boolean;
   status: ProductStatus;
+  sleeve: ProductSleeve;
   size_ids: string[];
   variants: Record<KitVariant, VariantFormState>;
 };
@@ -315,17 +334,19 @@ type SettingFormState = {
   label: string;
   country: string;
   league_id: string;
+  logo_path: string;
   sort_order: string;
 };
 
-const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "orders", label: "Orders", icon: ReceiptText },
-  { id: "products", label: "Products", icon: Shirt },
-  { id: "inventory", label: "Inventory", icon: Boxes },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "print", label: "Print", icon: Printer },
-  { id: "settings", label: "Settings", icon: Settings },
+const tabs: { id: AdminTab; label: string; href: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
+  { id: "overview", label: "Overview", href: "/admin/overview", icon: LayoutDashboard },
+  { id: "orders", label: "Orders", href: "/admin/orders", icon: ReceiptText },
+  { id: "products", label: "Products", href: "/admin/products", icon: Shirt },
+  { id: "inventory", label: "Inventory", href: "/admin/inventory", icon: Boxes },
+  { id: "payments", label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { id: "print", label: "Print", href: "/admin/print", icon: Printer },
+  { id: "settings", label: "Settings", href: "/admin/settings/leagues", icon: Settings },
+  { id: "migration", label: "Data Migration", href: "/admin/data-migration", icon: RefreshCw },
 ];
 
 const kitOptions: { id: KitVariant; label: string }[] = [
@@ -390,6 +411,35 @@ const settingSections: {
   { id: "payment_methods", label: "Payment Methods", icon: CreditCard },
   { id: "fonts", label: "Fonts", icon: Type },
 ];
+
+const adminPageTitles: Record<AdminTab, string> = {
+  overview: "Overview",
+  orders: "Orders",
+  products: "Products",
+  inventory: "Inventory",
+  payments: "Payments",
+  print: "Print center",
+  settings: "Settings",
+  migration: "Data migration",
+};
+
+function getAdminTabFromPathname(pathname: string): AdminTab {
+  if (pathname.startsWith("/admin/orders")) return "orders";
+  if (pathname.startsWith("/admin/products")) return "products";
+  if (pathname.startsWith("/admin/inventory")) return "inventory";
+  if (pathname.startsWith("/admin/payments")) return "payments";
+  if (pathname.startsWith("/admin/print")) return "print";
+  if (pathname.startsWith("/admin/settings")) return "settings";
+  if (pathname.startsWith("/admin/data-migration")) return "migration";
+  return "overview";
+}
+
+function getSettingSectionFromPathname(pathname: string): SettingSection {
+  const segment = pathname.split("/").filter(Boolean)[2];
+  return settingSections.some((section) => section.id === segment)
+    ? segment as SettingSection
+    : "leagues";
+}
 
 const printSlipSizes: { id: PrintSlipSize; label: string; width: string; minHeight: string; pageSize: string }[] = [
   {
@@ -537,10 +587,6 @@ function isErrorActionMessage(message: string) {
   return /\b(error|failed|required|invalid|missing|cannot|not contain|not available|stopped)\b/i.test(message);
 }
 
-function normalizeLookupValue(value: string) {
-  return value.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
 function splitCsv(value: string) {
   return value
     .split(",")
@@ -558,6 +604,7 @@ function getThemeColors(value: string) {
 function createSettingForm(section: SettingSection, item?: DbLeague | DbSeason | DbJerseySize | DbTeam): SettingFormState {
   const isSize = section === "sizes";
   const team = section === "teams" ? item as DbTeam | undefined : undefined;
+  const league = section === "leagues" ? item as DbLeague | undefined : undefined;
   const size = isSize ? item as DbJerseySize | undefined : undefined;
   const namedItem = !isSize ? item as DbLeague | DbSeason | DbTeam | undefined : undefined;
 
@@ -568,6 +615,7 @@ function createSettingForm(section: SettingSection, item?: DbLeague | DbSeason |
     label: size?.label ?? "",
     country: team?.country ?? "",
     league_id: team?.league_id ?? "",
+    logo_path: team?.logo_path ?? league?.logo_path ?? "",
     sort_order: item?.sort_order?.toString() ?? "0",
   };
 }
@@ -759,6 +807,7 @@ function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
     country_colors: "#111111, #ffffff, #737373",
     featured: false,
     status: "active",
+    sleeve: "short",
     size_ids: sizes.length ? sortByOrder(sizes).map((size) => size.id) : [],
     variants: {
       home: { kit: "home", name: "Home Kit", sku: "", price: "0", image_front_path: "", image_back_path: "", image_arm_path: "", available: true, stockBySize: {} },
@@ -810,6 +859,7 @@ function productToForm(product: DbProduct, availableSizes: DbJerseySize[] = []):
     country_colors: product.country_colors.join(", "),
     featured: product.featured,
     status: product.status,
+    sleeve: product.sleeve,
     size_ids: selectedSizeIds.length ? selectedSizeIds : form.size_ids,
     variants,
   };
@@ -817,10 +867,10 @@ function productToForm(product: DbProduct, availableSizes: DbJerseySize[] = []):
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const pathname = usePathname();
+  const activeTab = getAdminTabFromPathname(pathname);
+  const settingSection = getSettingSectionFromPathname(pathname);
   const [query, setQuery] = useState("");
-  const [inventoryQuery, setInventoryQuery] = useState("");
-  const [inventoryStockFilter, setInventoryStockFilter] = useState<"all" | "low" | "out">("all");
   const [orderPaymentFilter, setOrderPaymentFilter] = useState<OrderPaymentFilter>("all");
   const [orderDateFilter, setOrderDateFilter] = useState<OrderDateFilter>("all");
   const [orderDeliveryFilter, setOrderDeliveryFilter] = useState<DeliveryStatus | "all">("all");
@@ -838,19 +888,16 @@ export default function AdminDashboard() {
   const [sizes, setSizes] = useState<DbJerseySize[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<DbPaymentMethod[]>([]);
   const [addOnPricing, setAddOnPricing] = useState<AddOnPricing>({ customization: 2, armBadge: 5 });
-  const [settingSection, setSettingSection] = useState<SettingSection>("leagues");
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(activeTab === "settings");
   const [editingSetting, setEditingSetting] = useState<SettingFormState | null>(null);
+  const [syncingTeamLogos, setSyncingTeamLogos] = useState(false);
+  const [syncingLeagueLogos, setSyncingLeagueLogos] = useState(false);
   const [editingPaymentMethod, setEditingPaymentMethod] = useState<PaymentMethodFormState | null>(null);
   const [editingProduct, setEditingProduct] = useState<ProductFormState | null>(null);
-  const [productImportPreview, setProductImportPreview] = useState<ProductImportPreview | null>(null);
-  const [productImportFileName, setProductImportFileName] = useState("");
-  const [parsingProductImport, setParsingProductImport] = useState(false);
-  const [importingProducts, setImportingProducts] = useState(false);
+  const [publishingAvailableProducts, setPublishingAvailableProducts] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderFormState | null>(null);
   const [viewingOrder, setViewingOrder] = useState<DbOrder | null>(null);
   const [printingOrder, setPrintingOrder] = useState<DbOrder | null>(null);
-  const productImportInputRef = useRef<HTMLInputElement | null>(null);
 
   // Fonts state variables
   const [fontsList, setFontsList] = useState<DbFont[]>([]);
@@ -973,13 +1020,6 @@ export default function AdminDashboard() {
     };
   }, [loadAdminData, router]);
 
-  const productImportReference = useMemo<ProductImportReference>(() => ({
-    leagues,
-    teams,
-    seasons,
-    sizes,
-  }), [leagues, teams, seasons, sizes]);
-
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -987,75 +1027,40 @@ export default function AdminDashboard() {
   };
 
   const updateOrderStatus = async (order: DbOrder, status: OrderStatus) => {
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.from("orders").update({ status }).eq("id", order.id);
-    if (error) {
-      setActionMessage(error.message);
-      return;
+    try {
+      await adminOrderAction({ action: "status", orderId: order.id, status, note: "Updated from admin panel" });
+      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status } : item)));
+    } catch (error) {
+      setActionMessage((error as Error).message);
+      setActionIsError(true);
     }
-
-    await supabase.from("order_status_history").insert({
-      order_id: order.id,
-      from_status: order.status,
-      to_status: status,
-      note: "Updated from admin panel",
-    });
-    setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status } : item)));
   };
 
   const updateDeliveryStatus = async (order: DbOrder, deliveryStatus: DeliveryStatus) => {
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.from("orders").update({ delivery_status: deliveryStatus }).eq("id", order.id);
-    if (error) {
-      setActionMessage(error.message);
-      return;
+    try {
+      await adminOrderAction({ action: "delivery", orderId: order.id, status: deliveryStatus });
+      setOrders((current) => current.map((item) => (
+        item.id === order.id ? { ...item, delivery_status: deliveryStatus } : item
+      )));
+    } catch (error) {
+      setActionMessage((error as Error).message);
+      setActionIsError(true);
     }
-    setOrders((current) => current.map((item) => (
-      item.id === order.id ? { ...item, delivery_status: deliveryStatus } : item
-    )));
   };
 
   const updatePaymentStatus = async (proof: DbPaymentProof, status: PaymentStatus) => {
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase
-      .from("payment_proofs")
-      .update({
-        status,
-        reviewed_at: new Date().toISOString(),
-        rejection_reason: status === "rejected" ? "Rejected from admin panel" : null,
-      })
-      .eq("id", proof.id);
-
-    if (error) {
-      setActionMessage(error.message);
-      return;
+    try {
+      await adminOrderAction({ action: "payment", proofId: proof.id, status, reason: status === "rejected" ? "Rejected from admin panel" : null });
+      await loadAdminData();
+    } catch (error) {
+      setActionMessage((error as Error).message);
+      setActionIsError(true);
     }
-
-    const nextStatus = status === "verified" ? "paid" : "payment_rejected";
-    const currentOrder = orders.find((o) => o.id === proof.order_id);
-    const fromStatus = currentOrder?.status ?? null;
-
-    await supabase
-      .from("orders")
-      .update({ status: nextStatus })
-      .eq("id", proof.order_id);
-
-    await supabase.from("order_status_history").insert({
-      order_id: proof.order_id,
-      from_status: fromStatus,
-      to_status: nextStatus,
-      note: status === "verified"
-        ? "Updated via payment proof approval"
-        : "Updated via payment proof rejection",
-    });
-
-    await loadAdminData();
   };
 
   const saveOrder = async (form: OrderFormState) => {
     setActionMessage("");
     setActionIsError(false);
-    const supabase = createSupabaseBrowserClient();
     const items = form.items.filter((item) => item.product_name.trim() && item.size.trim() && toNumber(item.quantity, 1) > 0);
     const subtotal = getOrderSubtotal(items, addOnPricing);
     const deliveryFee = toNumber(form.delivery_fee);
@@ -1091,141 +1096,50 @@ export default function AdminDashboard() {
       admin_note: form.admin_note.trim() || null,
     };
 
-    const currentOrder = form.id ? orders.find((o) => o.id === form.id) : null;
-    const statusChanged = currentOrder && currentOrder.status !== form.status;
-    const isNewOrder = !form.id;
-
-    const orderResult = form.id
-      ? await supabase.from("orders").update(orderPayload).eq("id", form.id).select("id").single()
-      : await supabase.from("orders").insert(orderPayload).select("id").single();
-
-    if (orderResult.error || !orderResult.data) {
-      setActionMessage(orderResult.error?.message ?? "Failed to save order.");
-      setActionIsError(true);
-      return;
-    }
-
-    const orderId = orderResult.data.id as string;
-
-    if (isNewOrder) {
-      await supabase.from("order_status_history").insert({
-        order_id: orderId,
-        from_status: null,
-        to_status: form.status,
-        note: "Order created via admin panel",
-      });
-    } else if (statusChanged) {
-      await supabase.from("order_status_history").insert({
-        order_id: orderId,
-        from_status: currentOrder.status,
-        to_status: form.status,
-        note: "Status updated during order edit",
-      });
-    }
     const orderItems = items.map((item) => {
       const quantity = toNumber(item.quantity, 1);
       const unitPrice = toNumber(item.unit_price);
       return {
         id: item.id,
-        payload: {
-          order_id: orderId,
-          product_id: item.product_id || null,
-          variant_id: item.variant_id || null,
-          product_name: item.product_name.trim(),
-          kit_name: item.kit_name.trim() || kitOptions.find((kit) => kit.id === item.kit)?.label || "Home Kit",
-          size: item.size.trim(),
-          custom_name: item.custom_name.trim() || null,
-          custom_number: item.custom_number.trim() || null,
-          font_slug: null,
-          arm_badge: item.arm_badge || null,
-          customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
-          arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
-          quantity,
-          unit_price: unitPrice,
-          line_total: getOrderItemTotal(item, addOnPricing),
-        },
+        product_id: item.product_id || null,
+        variant_id: item.variant_id || null,
+        product_name: item.product_name.trim(),
+        kit_name: item.kit_name.trim() || kitOptions.find((kit) => kit.id === item.kit)?.label || "Home Kit",
+        size: item.size.trim(),
+        custom_name: item.custom_name.trim() || null,
+        custom_number: item.custom_number.trim() || null,
+        font_slug: null,
+        arm_badge: item.arm_badge || null,
+        customization_fee: item.custom_name || item.custom_number ? addOnPricing.customization : 0,
+        arm_badge_fee: item.arm_badge ? addOnPricing.armBadge : 0,
+        quantity,
+        unit_price: unitPrice,
+        line_total: getOrderItemTotal(item, addOnPricing),
       };
     });
-
-    const getStockErrorMessage = (message: string) => (
-      message.includes("Insufficient stock")
-        ? "Insufficient stock for one or more order items."
-        : message
-    );
-
-    const orderItemChanged = (existing: DbOrderItem, next: (typeof orderItems)[number]["payload"]) => (
-      existing.product_id !== next.product_id
-      || existing.variant_id !== next.variant_id
-      || existing.product_name !== next.product_name
-      || existing.kit_name !== next.kit_name
-      || existing.size !== next.size
-      || (existing.custom_name ?? null) !== next.custom_name
-      || (existing.custom_number ?? null) !== next.custom_number
-      || (existing.font_slug ?? null) !== next.font_slug
-      || (existing.arm_badge ?? null) !== next.arm_badge
-      || existing.customization_fee !== next.customization_fee
-      || existing.arm_badge_fee !== next.arm_badge_fee
-      || existing.quantity !== next.quantity
-      || existing.unit_price !== next.unit_price
-      || existing.line_total !== next.line_total
-    );
-
-    if (!form.id) {
-      const itemResult = await supabase.from("order_items").insert(orderItems.map((item) => item.payload));
-      if (itemResult.error) {
-        setActionMessage(getStockErrorMessage(itemResult.error.message));
-        return;
-      }
-    } else {
-      const existingItems = currentOrder?.order_items ?? [];
-      const nextIds = new Set(orderItems.map((item) => item.id).filter(Boolean));
-
-      for (const existingItem of existingItems) {
-        if (nextIds.has(existingItem.id)) continue;
-        const { error } = await supabase.from("order_items").delete().eq("id", existingItem.id);
-        if (error) {
-          setActionMessage(getStockErrorMessage(error.message));
-          return;
-        }
-      }
-
-      const existingById = new Map(existingItems.map((item) => [item.id, item]));
-      for (const item of orderItems) {
-        if (!item.id) {
-          const { error } = await supabase.from("order_items").insert(item.payload);
-          if (error) {
-            setActionMessage(getStockErrorMessage(error.message));
-            return;
-          }
-          continue;
-        }
-
-        const existingItem = existingById.get(item.id);
-        if (!existingItem || !orderItemChanged(existingItem, item.payload)) continue;
-        const { error } = await supabase.from("order_items").update(item.payload).eq("id", item.id);
-        if (error) {
-          setActionMessage(getStockErrorMessage(error.message));
-          return;
-        }
-      }
+    try {
+      await adminOrderAction({ action: "save", order: { ...orderPayload, id: form.id || null }, items: orderItems });
+      setEditingOrder(null);
+      setActionMessage("Order saved.");
+      await loadAdminData();
+    } catch (error) {
+      const message = (error as Error).message;
+      setActionMessage(message.includes("Insufficient stock") ? "Insufficient stock for one or more order items." : message);
+      setActionIsError(true);
     }
-
-    setEditingOrder(null);
-    setActionMessage("Order saved.");
-    await loadAdminData();
   };
 
   const deleteOrder = async (order: DbOrder) => {
     if (!window.confirm(`Delete ${order.order_number}? This removes items and payment proofs too.`)) return;
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.from("orders").delete().eq("id", order.id);
-    if (error) {
-      setActionMessage(error.message);
-      return;
+    try {
+      await adminOrderAction({ action: "delete", orderId: order.id });
+      setViewingOrder(null);
+      setActionMessage("Order deleted.");
+      await loadAdminData();
+    } catch (error) {
+      setActionMessage((error as Error).message);
+      setActionIsError(true);
     }
-    setViewingOrder(null);
-    setActionMessage("Order deleted.");
-    await loadAdminData();
   };
 
   const handleWhatsAppNotify = (order: DbOrder) => {
@@ -1295,22 +1209,12 @@ export default function AdminDashboard() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase
-      .from("inventory")
-      .update({ quantity: newQuantity })
-      .eq("id", inventoryId)
-      .lte("reserved", newQuantity)
-      .select("id")
-      .maybeSingle();
-
-    if (error || !data) {
-      setActionMessage(error?.message ?? "Stock cannot be lower than reserved quantity.");
-      return;
-    }
-
-    setActionMessage("Stock updated successfully.");
+    if (!inventoryRow?.version) throw new Error("Refresh inventory after applying migrations.");
+    const response = await fetch("/api/admin/inventory", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({inventoryId,expectedVersion:inventoryRow.version,operation:"set",quantity:newQuantity,reason:"Low-stock panel adjustment",idempotencyKey:crypto.randomUUID()})});
+    const result = await response.json();
+    if (!response.ok) { setActionMessage(result.error); throw new Error(result.error); }
     await loadAdminData();
+    setActionMessage("Stock updated successfully.");
   };
 
   const handleExportOrdersToCsv = (exportOrders: DbOrder[] = orders) => {
@@ -1391,6 +1295,80 @@ export default function AdminDashboard() {
     return [];
   };
 
+  const syncBundledTeamLogos = async () => {
+    setSyncingTeamLogos(true);
+    setActionMessage("");
+    setActionIsError(false);
+    try {
+      const response = await fetch("/api/admin/teams/logos", { method: "POST" });
+      const result = await response.json() as {
+        error?: string;
+        uploaded?: number;
+        matched?: string[];
+        unmatched?: string[];
+      };
+      if (!response.ok) throw new Error(result.error ?? "Team logo sync failed.");
+      setActionMessage(
+        `${result.uploaded ?? 0} logos uploaded; ${result.matched?.length ?? 0} teams linked.${result.unmatched?.length ? ` ${result.unmatched.length} teams have no bundled logo.` : ""}`,
+      );
+      await loadAdminData();
+    } catch (error) {
+      setActionMessage(getErrorMessage(error));
+      setActionIsError(true);
+    } finally {
+      setSyncingTeamLogos(false);
+    }
+  };
+
+  const syncBundledLeagueLogos = async () => {
+    setSyncingLeagueLogos(true);
+    setActionMessage("");
+    setActionIsError(false);
+    try {
+      const response = await fetch("/api/admin/leagues/logos", { method: "POST" });
+      const result = await response.json() as {
+        error?: string;
+        uploaded?: number;
+        matched?: string[];
+        unmatched?: string[];
+      };
+      if (!response.ok) throw new Error(result.error ?? "League logo sync failed.");
+      setActionMessage(
+        `${result.uploaded ?? 0} league logos uploaded; ${result.matched?.length ?? 0} leagues linked.${result.unmatched?.length ? ` ${result.unmatched.length} leagues have no bundled logo.` : ""}`,
+      );
+      await loadAdminData();
+    } catch (error) {
+      setActionMessage(getErrorMessage(error));
+      setActionIsError(true);
+    } finally {
+      setSyncingLeagueLogos(false);
+    }
+  };
+
+  const publishAvailableProducts = async () => {
+    setPublishingAvailableProducts(true);
+    setActionMessage("");
+    setActionIsError(false);
+    try {
+      const response = await fetch("/api/admin/products/publish-available", { method: "POST" });
+      const result = await response.json() as {
+        error?: string;
+        published?: Array<{ id: string; name: string }>;
+        skipped?: number;
+      };
+      if (!response.ok) throw new Error(result.error ?? "Unable to publish available products.");
+      setActionMessage(
+        `${result.published?.length ?? 0} stocked products published.${result.skipped ? ` ${result.skipped} drafts were kept private because they have no sellable stock or positive price.` : ""}`,
+      );
+      await loadAdminData();
+    } catch (error) {
+      setActionMessage(getErrorMessage(error));
+      setActionIsError(true);
+    } finally {
+      setPublishingAvailableProducts(false);
+    }
+  };
+
   const saveSetting = async (section: SettingSection, form: SettingFormState) => {
     const supabase = createSupabaseBrowserClient();
     const name = section === "sizes" ? form.label.trim().toUpperCase() : form.name.trim();
@@ -1416,13 +1394,14 @@ export default function AdminDashboard() {
         slug,
         league_id: form.league_id || null,
         country: form.country.trim() || null,
+        logo_path: form.logo_path.trim() || null,
         sort_order: order,
       };
       result = form.id
         ? await supabase.from("teams").update(payload).eq("id", form.id)
         : await supabase.from("teams").insert(payload);
     } else if (section === "leagues") {
-      const payload = { name, slug, sort_order: order };
+      const payload = { name, slug, logo_path: form.logo_path.trim() || null, sort_order: order };
       result = form.id
         ? await supabase.from("leagues").update(payload).eq("id", form.id)
         : await supabase.from("leagues").insert(payload);
@@ -1573,7 +1552,6 @@ export default function AdminDashboard() {
   };
 
   const persistProductForm = async (form: ProductFormState) => {
-    const supabase = createSupabaseBrowserClient();
     const slug = form.slug.trim() || slugify(form.name);
     const basePrice = toNumber(form.base_price);
     const selectedLeague = leagues.find((league) => league.id === form.league_id);
@@ -1606,83 +1584,17 @@ export default function AdminDashboard() {
       country_colors: getThemeColors(form.country_colors),
       featured: form.featured,
       status: form.status,
+      sleeve: form.sleeve,
     };
 
-    const productResult = form.id
-      ? await supabase.from("products").update(payload).eq("id", form.id).select("id").single()
-      : await supabase.from("products").insert(payload).select("id").single();
-
-    if (productResult.error || !productResult.data) {
-      throw new Error(productResult.error?.message ?? "Failed to save product.");
-    }
-
-    const productId = productResult.data.id as string;
-    const currentProduct = form.id ? products.find((product) => product.id === form.id) : null;
-
-    for (const kit of kitOptions) {
-      const variant = form.variants[kit.id];
-      const variantPayload = {
-        product_id: productId,
-        kit: kit.id,
-        name: variant.name.trim() || kit.label,
-        sku: variant.sku.trim() || null,
-        price: toNumber(variant.price, basePrice),
-        image_front_path: variant.image_front_path.trim() || null,
-        image_back_path: variant.image_back_path.trim() || null,
-        image_arm_path: variant.image_arm_path.trim() || null,
-        available: variant.available,
-      };
-
-      const variantResult = variant.id
-        ? await supabase.from("product_variants").update(variantPayload).eq("id", variant.id).select("id").single()
-        : await supabase.from("product_variants").insert(variantPayload).select("id").single();
-
-      if (variantResult.error || !variantResult.data) {
-        throw new Error(variantResult.error?.message ?? `Failed to save ${kit.label}.`);
-      }
-
-      const variantId = variantResult.data.id as string;
-      const existingInventory = currentProduct?.product_variants
-        ?.find((item) => item.id === variantId || item.kit === kit.id)
-        ?.inventory ?? [];
-      const existingBySize = new Map(existingInventory.map((row) => [row.size, row]));
-      const selectedSizeSet = new Set(inventorySizes);
-
-      if (inventorySizes.length) {
-        const inventoryRows = inventorySizes.map((size) => ({
-          variant_id: variantId,
-          size,
-          quantity: Math.max(
-            existingBySize.get(size)?.reserved ?? 0,
-            variant.available ? Math.max(0, Math.floor(toNumber(variant.stockBySize[size]))) : 0,
-          ),
-          is_active: variant.available,
-        }));
-        const inventoryResult = await supabase
-          .from("inventory")
-          .upsert(inventoryRows, { onConflict: "variant_id,size" });
-        if (inventoryResult.error) {
-          throw new Error(inventoryResult.error.message);
-        }
-      }
-
-      const removedSizes = existingInventory
-        .filter((row) => isInventoryActive(row) && !selectedSizeSet.has(row.size))
-        .map((row) => row.size);
-
-      if (removedSizes.length) {
-        const inactiveResult = await supabase
-          .from("inventory")
-          .update({ is_active: false })
-          .eq("variant_id", variantId)
-          .in("size", removedSizes);
-        if (inactiveResult.error) {
-          throw new Error(inactiveResult.error.message);
-        }
-      }
-    }
-
-    return productId;
+    const currentProduct = products.find(product => product.id === form.id);
+    const response = await fetch("/api/admin/products", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      id:form.id || null, expectedUpdatedAt:currentProduct?.updated_at, metadata:payload,
+      variants:kitOptions.map(kit => { const v=form.variants[kit.id]; return {kit:kit.id,name:v.name.trim()||kit.label,sku:v.sku.trim(),price:toNumber(v.price,basePrice),image_front_path:v.image_front_path,image_back_path:v.image_back_path,image_arm_path:v.image_arm_path,available:v.available,stock:inventorySizes.map(size=>({size}))}; })
+    })});
+    const result=await response.json();
+    if(!response.ok) throw new Error(result.error);
+    return result.id as string;
   };
 
   const saveProduct = async (form: ProductFormState) => {
@@ -1697,142 +1609,16 @@ export default function AdminDashboard() {
     }
   };
 
-  const productImportRowToForm = (row: ProductImportRow): ProductFormState => {
-    const selectedLeague = leagues.find((league) => normalizeLookupValue(league.name) === normalizeLookupValue(row.leagueName));
-    const selectedTeam = selectedLeague
-      ? teams.find((team) => (
-        normalizeLookupValue(team.name) === normalizeLookupValue(row.teamName)
-        && team.league_id === selectedLeague.id
-      ))
-      : null;
-    const selectedSeason = seasons.find((season) => normalizeLookupValue(season.name) === normalizeLookupValue(row.seasonName));
-
-    if (!selectedLeague || !selectedTeam || !selectedSeason) {
-      throw new Error("Import row references a missing league, team, or season.");
-    }
-
-    const existingProduct = row.existingProductId
-      ? products.find((product) => product.id === row.existingProductId) ?? null
-      : null;
-    const baseForm = existingProduct ? productToForm(existingProduct, sizes) : createEmptyProductForm(sizes);
-    const selectedSizes = sortByOrder(sizes);
-    const variants = { ...baseForm.variants };
-
-    for (const kit of productImportKits) {
-      const importVariant = row.variants[kit];
-      const currentVariant = baseForm.variants[kit];
-      const stockBySize = Object.fromEntries(
-        selectedSizes.map((size) => [size.label, String(importVariant.stockBySize[size.label] ?? 0)]),
-      );
-      const kitLabel = kitOptions.find((option) => option.id === kit)?.label ?? currentVariant.name;
-
-      variants[kit] = {
-        ...currentVariant,
-        kit,
-        name: importVariant.name || currentVariant.name || kitLabel,
-        sku: importVariant.sku || (existingProduct ? currentVariant.sku : ""),
-        price: String(importVariant.price ?? row.basePrice),
-        image_front_path: importVariant.image_front_path || (existingProduct ? currentVariant.image_front_path : ""),
-        image_back_path: importVariant.image_back_path || (existingProduct ? currentVariant.image_back_path : ""),
-        image_arm_path: importVariant.image_arm_path || (existingProduct ? currentVariant.image_arm_path : ""),
-        available: importVariant.available,
-        stockBySize,
-      };
-    }
-
-    return {
-      ...baseForm,
-      slug: row.slug,
-      name: row.name,
-      league_id: selectedLeague.id,
-      team_id: selectedTeam.id,
-      season_id: selectedSeason.id,
-      team: selectedTeam.name,
-      category: selectedLeague.name,
-      collection: row.collection,
-      description: row.description,
-      base_price: String(row.basePrice),
-      season: selectedSeason.name,
-      fabric: row.fabric || baseForm.fabric,
-      country_colors: row.countryColors || baseForm.country_colors,
-      featured: row.featured,
-      status: row.status,
-      size_ids: selectedSizes.map((size) => size.id),
-      variants,
-    };
-  };
-
-  const handleDownloadProductTemplate = async () => {
-    setActionMessage("");
-    setActionIsError(false);
-    try {
-      await downloadProductImportTemplate(productImportReference);
-      setActionMessage("Product import template downloaded.");
-    } catch (error) {
-      setActionMessage(`Template download failed: ${getErrorMessage(error)}`);
-      setActionIsError(true);
-    }
-  };
-
-  const handleProductImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    setActionMessage("");
-    setActionIsError(false);
-    setParsingProductImport(true);
-    try {
-      const preview = await parseProductImportFile(file, productImportReference, products);
-      setProductImportFileName(file.name);
-      setProductImportPreview(preview);
-      setActiveTab("products");
-    } catch (error) {
-      setActionMessage(`Import file could not be read: ${getErrorMessage(error)}`);
-      setActionIsError(true);
-    } finally {
-      setParsingProductImport(false);
-    }
-  };
-
-  const handleConfirmProductImport = async () => {
-    if (!productImportPreview || productImportPreview.issues.length > 0 || productImportPreview.rows.length === 0) return;
-
-    setImportingProducts(true);
-    let importedCount = 0;
-    let updatedCount = 0;
-
-    for (const row of productImportPreview.rows) {
-      try {
-        await persistProductForm(productImportRowToForm(row));
-        importedCount += 1;
-        if (row.existingProductId) updatedCount += 1;
-      } catch (error) {
-        await loadAdminData();
-        setActionMessage(`Import stopped on row ${row.rowNumber}: ${getErrorMessage(error)}`);
-        setActionIsError(true);
-        setImportingProducts(false);
-        return;
-      }
-    }
-
-    setProductImportPreview(null);
-    setProductImportFileName("");
-    await loadAdminData();
-    setActionMessage(`Imported ${importedCount} products, updated ${updatedCount} existing products.`);
-    setImportingProducts(false);
-  };
-
   const deleteProduct = async (product: DbProduct) => {
-    if (!window.confirm(`Delete ${product.name}? This removes variants and inventory too.`)) return;
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.from("products").delete().eq("id", product.id);
-    if (error) {
-      setActionMessage(error.message);
+    if (!window.confirm(`Archive ${product.name}? It will be hidden from the store and its stock will become inactive.`)) return;
+    const response = await fetch("/api/admin/products", {method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:product.id})});
+    const result = await response.json();
+    if (!response.ok) {
+      setActionMessage(result.error);
       setActionIsError(true);
       return;
     }
-    setActionMessage("Product deleted.");
+    setActionMessage("Product archived.");
     await loadAdminData();
   };
 
@@ -1918,47 +1704,6 @@ export default function AdminDashboard() {
     return list;
   }, [products]);
 
-  const inventoryRows = useMemo(() => {
-    return products.flatMap((product) => (
-      (product.product_variants ?? []).flatMap((variant) => (
-        (variant.inventory ?? [])
-          .filter(isInventoryActive)
-          .map((inv) => ({
-            inventoryId: inv.id,
-            productId: product.id,
-            productName: product.name,
-            productStatus: product.status,
-            kitName: variant.name,
-            kit: variant.kit,
-            sku: variant.sku,
-            size: inv.size,
-            quantity: inv.quantity,
-            reserved: inv.reserved,
-            available: getAvailableStock(inv),
-            imagePath: variant.image_front_path,
-            variantAvailable: variant.available,
-          }))
-      ))
-    ));
-  }, [products]);
-
-  const filteredInventoryRows = useMemo(() => {
-    const term = inventoryQuery.trim().toLowerCase();
-    return inventoryRows.filter((row) => {
-      const matchesSearch = !term || [
-        row.productName,
-        row.kitName,
-        row.sku ?? "",
-        row.size,
-      ].some((value) => value.toLowerCase().includes(term));
-      const matchesStock =
-        inventoryStockFilter === "all"
-        || (inventoryStockFilter === "low" && row.available > 0 && row.available <= 8)
-        || (inventoryStockFilter === "out" && row.available <= 0);
-      return matchesSearch && matchesStock;
-    });
-  }, [inventoryQuery, inventoryRows, inventoryStockFilter]);
-
   const filteredOrders = useMemo(() => {
     const term = query.trim().toLowerCase();
 
@@ -1991,23 +1736,16 @@ export default function AdminDashboard() {
     .filter((order) => new Date(order.created_at).toDateString() === today && !["cancelled", "payment_rejected"].includes(order.status))
     .reduce((sum, order) => sum + order.total, 0);
   const lowStockProducts = productRows.filter((row) => row.totalStock > 0 && row.totalStock <= 8).length;
-  const outOfStockKits = productRows.reduce(
-    (count, row) => count + kitOptions.filter((kit) => row.stock[kit.id] === 0).length,
-    0,
+  const availableVariants = products.flatMap((product) =>
+    (product.product_variants ?? []).filter((variant) => variant.available),
   );
-  const readyVariants = productRows.length * kitOptions.length - outOfStockKits;
+  const outOfStockKits = availableVariants.filter((variant) =>
+    (variant.inventory ?? []).reduce((sum, row) => sum + getAvailableStock(row), 0) === 0,
+  ).length;
+  const readyVariants = availableVariants.length - outOfStockKits;
 
   if (authStatus === "checking") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f7f5] px-6 text-center">
-        <div>
-          <div className="mx-auto size-10 animate-spin rounded-full border-2 border-border border-t-primary" />
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            Checking admin session
-          </p>
-        </div>
-      </div>
-    );
+    return <AdminDashboardSkeleton />;
   }
 
   if (authStatus === "denied") {
@@ -2051,7 +1789,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <nav className="grid grid-cols-7 gap-1 md:mt-8 md:grid-cols-1 md:gap-2">
+        <nav aria-label="Admin sections" className="flex gap-1 overflow-x-auto pb-1 md:mt-8 md:grid md:grid-cols-1 md:gap-2 md:overflow-visible md:pb-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -2059,13 +1797,13 @@ export default function AdminDashboard() {
             if (tab.id === "settings") {
               return (
                 <div key={tab.id} className="relative min-w-0 md:static">
-                  <button
-                    type="button"
+                  <Link
+                    href={tab.href}
+                    aria-current={isActive ? "page" : undefined}
                     onClick={() => {
-                      setActiveTab("settings");
-                      setSettingsMenuOpen((open) => !open);
+                      setSettingsMenuOpen(true);
                     }}
-                    className={`flex w-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors md:h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-[11px] ${
+                    className={`flex w-[4.75rem] min-w-[4.75rem] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors md:h-11 md:w-full md:min-w-0 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-[11px] ${
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -2077,22 +1815,18 @@ export default function AdminDashboard() {
                       size={13}
                       className={`hidden transition-transform md:ml-auto md:block ${settingsMenuOpen ? "rotate-180" : ""}`}
                     />
-                  </button>
+                  </Link>
                   {settingsMenuOpen && (
                     <div className="absolute bottom-full right-0 mb-2 w-44 rounded-lg border border-border bg-background p-1 shadow-lg md:static md:mb-0 md:ml-6 md:mt-1 md:w-auto md:border-0 md:bg-transparent md:p-0 md:shadow-none">
                       {settingSections.map((section) => {
                         const SectionIcon = section.icon;
                         const sectionActive = activeTab === "settings" && settingSection === section.id;
                         return (
-                          <button
+                          <Link
                             key={section.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveTab("settings");
-                              setSettingSection(section.id);
-                              setEditingSetting(null);
-                              setSettingsMenuOpen(true);
-                            }}
+                            href={`/admin/settings/${section.id}`}
+                            aria-current={sectionActive ? "page" : undefined}
+                            onClick={() => setEditingSetting(null)}
                             className={`flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${
                               sectionActive
                                 ? "bg-primary/10 text-primary"
@@ -2101,7 +1835,7 @@ export default function AdminDashboard() {
                           >
                             <SectionIcon size={13} />
                             {section.label}
-                          </button>
+                          </Link>
                         );
                       })}
                     </div>
@@ -2111,14 +1845,12 @@ export default function AdminDashboard() {
             }
 
             return (
-              <button
+              <Link
                 key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setSettingsMenuOpen(false);
-                }}
-                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors md:h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-[11px] ${
+                href={tab.href}
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => setSettingsMenuOpen(false)}
+                className={`flex w-[4.75rem] min-w-[4.75rem] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors md:h-11 md:w-full md:min-w-0 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-left md:text-[11px] ${
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -2126,15 +1858,16 @@ export default function AdminDashboard() {
               >
                 <Icon size={16} />
                 <span className="truncate">{tab.label}</span>
-              </button>
+              </Link>
             );
           })}
         </nav>
 
       </aside>
 
-      <main className="px-4 pb-24 pt-5 md:ml-72 md:px-8 md:pb-10 md:pt-8 xl:px-10">
-        <header className="flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
+      <main className="px-4 pb-28 pt-5 md:ml-72 md:px-8 md:pb-10 md:pt-8 xl:px-10">
+        <div className="mx-auto w-full max-w-[1600px]">
+        <header className="flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex flex-wrap gap-3">
               <Link href="/" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
@@ -2144,15 +1877,18 @@ export default function AdminDashboard() {
                 Pricelists <ArrowUpRight size={13} />
               </Link>
             </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Admin Panel</h1>
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Admin panel</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{adminPageTitles[activeTab]}</h1>
           </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
             <button
               type="button"
               onClick={loadAdminData}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground hover:border-primary/40"
+              disabled={loadingData}
+              aria-busy={loadingData}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground hover:border-primary/40 disabled:cursor-wait disabled:opacity-60"
             >
-              <RefreshCw size={13} /> Refresh
+              <RefreshCw size={13} className={loadingData ? "animate-spin" : ""} /> {loadingData ? "Loading" : "Refresh"}
             </button>
             <button
               type="button"
@@ -2161,16 +1897,15 @@ export default function AdminDashboard() {
             >
               Logout
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("products");
-                setEditingProduct(createEmptyProductForm(sizes));
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus size={13} /> Add Product
-            </button>
+            {activeTab === "products" && (
+              <button
+                type="button"
+                onClick={() => setEditingProduct(createEmptyProductForm(sizes))}
+                className="col-span-2 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground hover:bg-primary/90 sm:col-span-1"
+              >
+                <Plus size={13} /> Add Product
+              </button>
+            )}
           </div>
         </header>
 
@@ -2181,8 +1916,9 @@ export default function AdminDashboard() {
         )}
 
         {loadingData ? (
-          <div className="mt-8 rounded-xl border border-border bg-background p-8 text-center text-sm text-muted-foreground">
-            Loading Supabase data...
+          <div className="mt-6" aria-live="polite" aria-busy="true">
+            <span className="sr-only">Loading admin data</span>
+            <AdminDashboardSkeleton embedded />
           </div>
         ) : (
           <>
@@ -2280,6 +2016,13 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <div className="flex gap-2">
+                    <a
+                      href="/api/admin/orders/backup"
+                      download
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground hover:border-primary/40"
+                    >
+                      Backup JSON
+                    </a>
                     <button
                       type="button"
                       onClick={() => handleExportOrdersToCsv(filteredOrders)}
@@ -2380,51 +2123,29 @@ export default function AdminDashboard() {
                   onDelete={deleteProduct}
                   actions={(
                     <div className="flex flex-wrap gap-2">
-                      <input
-                        ref={productImportInputRef}
-                        type="file"
-                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        className="hidden"
-                        onChange={handleProductImportFile}
-                      />
                       <button
                         type="button"
-                        onClick={handleDownloadProductTemplate}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground hover:border-primary/50"
+                        onClick={publishAvailableProducts}
+                        disabled={publishingAvailableProducts}
+                        className="inline-flex h-10 items-center gap-2 rounded-full border border-border bg-background px-4 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:border-primary/50 disabled:cursor-wait disabled:opacity-60"
                       >
-                        <Download size={13} /> Download Template
+                        <PackageCheck size={13} />
+                        {publishingAvailableProducts ? "Publishing" : "Publish available"}
                       </button>
-                      <button
-                        type="button"
-                        disabled={parsingProductImport}
-                        onClick={() => productImportInputRef.current?.click()}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Upload size={13} /> {parsingProductImport ? "Reading..." : "Import Excel"}
-                      </button>
+                      <ProductExcelImport onComplete={loadAdminData} />
                     </div>
                   )}
                 />
               </section>
             )}
 
-            {activeTab === "inventory" && (
-              <section className="mt-6 space-y-6">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <MetricCard label="Available units" value={inventoryRows.reduce((sum, row) => sum + row.available, 0).toString()} icon={Boxes} />
-                  <MetricCard label="Low stock sizes" value={inventoryRows.filter((row) => row.available > 0 && row.available <= 8).length.toString()} icon={AlertTriangle} attention={inventoryRows.some((row) => row.available > 0 && row.available <= 8)} />
-                  <MetricCard label="Out of stock sizes" value={inventoryRows.filter((row) => row.available <= 0).length.toString()} icon={PackageCheck} attention={inventoryRows.some((row) => row.available <= 0)} />
-                </div>
-                <InventoryPanel
-                  rows={filteredInventoryRows}
-                  query={inventoryQuery}
-                  stockFilter={inventoryStockFilter}
-                  totalRows={inventoryRows.length}
-                  onQueryChange={setInventoryQuery}
-                  onStockFilterChange={setInventoryStockFilter}
-                  onUpdateStock={handleQuickStockUpdate}
-                />
-              </section>
+            {activeTab === "inventory" && <section className="mt-6"><InventoryWorkspace /></section>}
+
+            {activeTab === "migration" && (
+              <DatabaseRebuildWorkspace
+                onOpenProducts={() => router.push("/admin/products")}
+                onOpenInventory={() => router.push("/admin/inventory")}
+              />
             )}
 
             {activeTab === "payments" && (
@@ -2672,27 +2393,20 @@ export default function AdminDashboard() {
                     onCancel={() => setEditingSetting(null)}
                     onSave={(form) => saveSetting(settingSection, form)}
                     onDelete={(item) => deleteSetting(settingSection, item)}
+                    onSyncTeamLogos={syncBundledTeamLogos}
+                    syncingTeamLogos={syncingTeamLogos}
+                    onSyncLeagueLogos={syncBundledLeagueLogos}
+                    syncingLeagueLogos={syncingLeagueLogos}
                   />
                 )}
               </section>
             )}
           </>
         )}
+        </div>
       </main>
 
-      {productImportPreview && (
-        <ProductImportReviewModal
-          preview={productImportPreview}
-          fileName={productImportFileName}
-          importing={importingProducts}
-          onClose={() => {
-            if (importingProducts) return;
-            setProductImportPreview(null);
-            setProductImportFileName("");
-          }}
-          onImport={handleConfirmProductImport}
-        />
-      )}
+
       {editingProduct && (
         <ProductEditor
           form={editingProduct}
@@ -2825,257 +2539,6 @@ function LowStockPanel({
   );
 }
 
-function InventoryPanel({
-  rows,
-  query,
-  stockFilter,
-  totalRows,
-  onQueryChange,
-  onStockFilterChange,
-  onUpdateStock,
-}: {
-  rows: {
-    inventoryId: string;
-    productId: string;
-    productName: string;
-    productStatus: ProductStatus;
-    kitName: string;
-    kit: KitVariant;
-    sku: string | null;
-    size: string;
-    quantity: number;
-    reserved: number;
-    available: number;
-    imagePath: string | null;
-    variantAvailable: boolean;
-  }[];
-  query: string;
-  stockFilter: "all" | "low" | "out";
-  totalRows: number;
-  onQueryChange: (value: string) => void;
-  onStockFilterChange: (value: "all" | "low" | "out") => void;
-  onUpdateStock: (inventoryId: string, newQuantity: number) => Promise<void>;
-}) {
-  const [inputVal, setInputVal] = useState<Record<string, string>>({});
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const groups = useMemo(() => {
-    const grouped = new Map<string, {
-      productId: string;
-      productName: string;
-      productStatus: ProductStatus;
-      imagePath: string | null;
-      rows: typeof rows;
-      quantity: number;
-      reserved: number;
-      available: number;
-      lowCount: number;
-      outCount: number;
-      kitTotals: Record<KitVariant, number>;
-    }>();
-
-    for (const row of rows) {
-      const current = grouped.get(row.productId) ?? {
-        productId: row.productId,
-        productName: row.productName,
-        productStatus: row.productStatus,
-        imagePath: row.imagePath,
-        rows: [],
-        quantity: 0,
-        reserved: 0,
-        available: 0,
-        lowCount: 0,
-        outCount: 0,
-        kitTotals: { home: 0, away: 0, third: 0 },
-      };
-      current.rows.push(row);
-      current.quantity += row.quantity;
-      current.reserved += row.reserved;
-      current.available += row.available;
-      current.kitTotals[row.kit] += row.available;
-      if (row.available <= 0) current.outCount += 1;
-      else if (row.available <= 8) current.lowCount += 1;
-      if (!current.imagePath && row.imagePath) current.imagePath = row.imagePath;
-      grouped.set(row.productId, current);
-    }
-
-    return Array.from(grouped.values());
-  }, [rows]);
-
-  const handleSave = async (row: { inventoryId: string; reserved: number }) => {
-    const value = inputVal[row.inventoryId];
-    if (value === undefined || value.trim() === "") return;
-    const nextQuantity = Number.parseInt(value, 10);
-    if (!Number.isFinite(nextQuantity) || nextQuantity < row.reserved) return;
-    setUpdatingId(row.inventoryId);
-    try {
-      await onUpdateStock(row.inventoryId, nextQuantity);
-      setInputVal((current) => ({ ...current, [row.inventoryId]: "" }));
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  return (
-    <section className="rounded-xl border border-border bg-background">
-      <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Inventory</p>
-          <h2 className="mt-1 text-lg font-bold">Stock by product</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Showing {rows.length} of {totalRows} active stock rows across {groups.length} products.</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,260px)_150px]">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Search inventory..."
-              className="h-10 w-full rounded-full border border-border bg-background pl-9 pr-4 text-sm outline-none focus:border-primary"
-            />
-          </div>
-          <select
-            value={stockFilter}
-            onChange={(event) => onStockFilterChange(event.target.value as "all" | "low" | "out")}
-            className="h-10 rounded-full border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-[0.08em] outline-none hover:border-primary/50"
-          >
-            <option value="all">All stock</option>
-            <option value="low">Low stock</option>
-            <option value="out">Out of stock</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="divide-y divide-border">
-        {groups.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            No inventory rows match the current filters.
-          </div>
-        ) : groups.map((group, index) => (
-          <details
-            key={group.productId}
-            open={index === 0 || Boolean(query.trim()) || stockFilter !== "all"}
-            className="group"
-          >
-            <summary className="grid cursor-pointer list-none gap-4 px-5 py-4 hover:bg-muted/20 lg:grid-cols-[minmax(0,1fr)_360px_160px_auto] lg:items-center [&::-webkit-details-marker]:hidden">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  <Image src={getPublicProductImage(group.imagePath)} alt={group.productName} fill sizes="56px" className="object-contain p-1" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-foreground">{group.productName}</p>
-                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{group.productStatus} · {group.rows.length} size rows</p>
-                  {(group.lowCount > 0 || group.outCount > 0) && (
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
-                      {group.lowCount > 0 && `${group.lowCount} low`}
-                      {group.lowCount > 0 && group.outCount > 0 && " · "}
-                      {group.outCount > 0 && `${group.outCount} out`}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {kitOptions.map((kit) => (
-                  <div key={kit.id} className={`rounded-lg border px-3 py-2 ${group.kitTotals[kit.id] <= 0 ? "border-red-200 bg-red-50 text-red-700" : group.kitTotals[kit.id] <= 8 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-border bg-muted/30"}`}>
-                    <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{kit.label.replace(" Kit", "")}</span>
-                    <strong className="mt-1 block text-base">{group.kitTotals[kit.id]}</strong>
-                  </div>
-                ))}
-              </div>
-              <dl className="grid grid-cols-3 gap-3 text-right text-xs lg:grid-cols-1 lg:gap-1">
-                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Qty</dt><dd className="font-bold">{group.quantity}</dd></div>
-                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Reserved</dt><dd className="font-bold">{group.reserved}</dd></div>
-                <div><dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">Available</dt><dd className="font-bold">{group.available}</dd></div>
-              </dl>
-              <ChevronDown size={17} className="hidden text-muted-foreground transition-transform group-open:rotate-180 lg:block" />
-            </summary>
-            <div className="border-t border-border bg-muted/10 px-3 pb-4">
-              <div className="overflow-x-auto rounded-lg border border-border bg-background">
-                <table className="w-full min-w-[720px] border-collapse text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      <th className="px-4 py-3">Kit</th>
-                      <th className="px-4 py-3">Size</th>
-                      <th className="px-4 py-3 text-right">Quantity</th>
-                      <th className="px-4 py-3 text-right">Reserved</th>
-                      <th className="px-4 py-3 text-right">Available</th>
-                      <th className="px-4 py-3">Set stock</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {group.rows.map((row) => {
-                      const value = inputVal[row.inventoryId] ?? "";
-                      const parsed = value.trim() ? Number.parseInt(value, 10) : null;
-                      const invalid = parsed !== null && (!Number.isFinite(parsed) || parsed < row.reserved);
-                      const kitTone = getInventoryKitTone(row.kit);
-                      return (
-                        <tr key={row.inventoryId} className={kitTone.row}>
-                          <td className={`border-l-4 px-4 py-4 ${kitTone.border}`}>
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${kitTone.badge}`}>
-                              {row.kitName}
-                            </span>
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">{row.sku ?? row.kit}</p>
-                          </td>
-                          <td className="px-4 py-4 font-bold">{row.size}</td>
-                          <td className="px-4 py-4 text-right font-bold">{row.quantity}</td>
-                          <td className="px-4 py-4 text-right">{row.reserved}</td>
-                          <td className={`px-4 py-4 text-right font-bold ${row.available <= 0 ? "text-destructive" : row.available <= 8 ? "text-amber-700" : "text-foreground"}`}>
-                            {row.available}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min={row.reserved}
-                                value={value}
-                                onChange={(event) => setInputVal((current) => ({ ...current, [row.inventoryId]: event.target.value.replace(/\D/g, "") }))}
-                                placeholder={`>= ${row.reserved}`}
-                                className={`h-9 w-24 rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary ${invalid ? "border-destructive" : "border-border"}`}
-                              />
-                              <button
-                                type="button"
-                                disabled={updatingId === row.inventoryId || !value.trim() || invalid}
-                                onClick={() => handleSave(row)}
-                                className="h-9 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                {updatingId === row.inventoryId ? "..." : "Set"}
-                              </button>
-                            </div>
-                            {invalid && <p className="mt-1 text-[10px] text-destructive">Must be at least reserved.</p>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </details>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function getInventoryKitTone(kit: KitVariant) {
-  const tones: Record<KitVariant, { row: string; badge: string; border: string }> = {
-    home: {
-      row: "bg-sky-50/70 hover:bg-sky-100/70",
-      badge: "border-sky-200 bg-sky-100 text-sky-800",
-      border: "border-l-sky-400",
-    },
-    away: {
-      row: "bg-emerald-50/70 hover:bg-emerald-100/70",
-      badge: "border-emerald-200 bg-emerald-100 text-emerald-800",
-      border: "border-l-emerald-400",
-    },
-    third: {
-      row: "bg-amber-50/70 hover:bg-amber-100/70",
-      badge: "border-amber-200 bg-amber-100 text-amber-800",
-      border: "border-l-amber-400",
-    },
-  };
-  return tones[kit];
-}
 
 function MetricCard({
   label,
@@ -3108,8 +2571,6 @@ function MetricCard({
 function OrdersPanel({
   orders: panelOrders,
   compact,
-  onStatusChange,
-  onDeliveryStatusChange,
   onView,
   onEdit,
   onDelete,
@@ -3233,6 +2694,16 @@ function ProductsPanel({
   onEdit: (form: ProductFormState) => void;
   onDelete: (product: DbProduct) => void;
 }) {
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = compact ? 1 : Math.max(1, Math.ceil(rows.length / pageSize));
+  const activePage = Math.min(currentPage, totalPages);
+  const visibleRows = compact
+    ? rows
+    : rows.slice((activePage - 1) * pageSize, activePage * pageSize);
+  const firstVisibleProduct = rows.length === 0 ? 0 : (activePage - 1) * pageSize + 1;
+  const lastVisibleProduct = Math.min(activePage * pageSize, rows.length);
+
   return (
     <section className="rounded-xl border border-border bg-background">
       <div className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -3245,7 +2716,7 @@ function ProductsPanel({
       <div className="divide-y divide-border">
         {rows.length === 0 ? (
           <EmptyRow label="No products in Supabase yet. Use Add Product to create one." />
-        ) : rows.map(({ product, stock, totalStock, sizes }) => {
+        ) : visibleRows.map(({ product, stock, totalStock, sizes }) => {
           const firstVariant = product.product_variants?.find((variant) => variant.image_front_path) ?? product.product_variants?.[0];
           return (
             <article key={product.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)_auto] lg:items-center">
@@ -3265,10 +2736,11 @@ function ProductsPanel({
               <div className="grid grid-cols-3 gap-2">
                 {kitOptions.map((kit) => {
                   const count = stock[kit.id];
+                  const isAvailable = product.product_variants?.some((variant) => variant.kit === kit.id && variant.available) ?? false;
                   return (
-                    <div key={kit.id} className={`rounded-lg border px-3 py-2 ${count === 0 ? "border-destructive/20 bg-destructive/5" : count <= 3 ? "border-amber-200 bg-amber-50" : "border-border bg-muted/30"}`}>
+                    <div key={kit.id} className={`rounded-lg border px-3 py-2 ${!isAvailable ? "border-dashed border-border bg-muted/20" : count === 0 ? "border-destructive/20 bg-destructive/5" : count <= 3 ? "border-amber-200 bg-amber-50" : "border-border bg-muted/30"}`}>
                       <span className="block text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{kit.label.replace(" Kit", "")}</span>
-                      <strong className="mt-1 block text-base">{count}</strong>
+                      <strong className={`mt-1 block text-base ${!isAvailable ? "text-muted-foreground" : ""}`}>{isAvailable ? count : "—"}</strong>
                     </div>
                   );
                 })}
@@ -3293,150 +2765,56 @@ function ProductsPanel({
           );
         })}
       </div>
+      {!compact && rows.length > 0 && (
+        <nav
+          aria-label="Product pagination"
+          className="flex flex-col gap-4 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+        >
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:text-left">
+            Showing {firstVisibleProduct}–{lastVisibleProduct} of {rows.length} products
+          </p>
+          <div className="flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(Math.max(1, activePage - 1))}
+              disabled={activePage === 1}
+              aria-label="Previous product page"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                aria-label={`Product page ${page}`}
+                aria-current={activePage === page ? "page" : undefined}
+                className={`h-9 min-w-9 rounded-full px-3 text-xs font-bold transition-colors ${
+                  activePage === page
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border bg-background text-foreground hover:border-primary/50"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}
+              disabled={activePage === totalPages}
+              aria-label="Next product page"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </nav>
+      )}
     </section>
   );
 }
 
-function ProductImportReviewModal({
-  preview,
-  fileName,
-  importing,
-  onClose,
-  onImport,
-}: {
-  preview: ProductImportPreview;
-  fileName: string;
-  importing: boolean;
-  onClose: () => void;
-  onImport: () => void;
-}) {
-  const hasIssues = preview.issues.length > 0;
-  const canImport = !hasIssues && preview.rows.length > 0 && !importing;
-  const sampleRows = preview.rows.slice(0, 6);
-
-  return (
-    <div className="fixed inset-0 z-[75] bg-black/45 p-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-background shadow-xl">
-        <div className="flex items-center justify-between gap-4 border-b border-border p-5">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Product Import</p>
-            <h2 className="mt-1 truncate text-xl font-bold">{fileName || "Excel review"}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={importing}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <ImportStat label="Rows" value={preview.totalRows.toString()} />
-            <ImportStat label="Valid" value={preview.validRows.toString()} />
-            <ImportStat label="New" value={preview.createCount.toString()} />
-            <ImportStat label="Updates" value={preview.updateCount.toString()} />
-            <ImportStat label="Errors" value={preview.issues.length.toString()} attention={hasIssues} />
-          </div>
-
-          {hasIssues ? (
-            <section className="mt-5 rounded-xl border border-destructive/25 bg-destructive/5">
-              <div className="border-b border-destructive/20 px-4 py-3">
-                <h3 className="text-sm font-bold text-destructive">Fix these rows before importing</h3>
-              </div>
-              <div className="divide-y divide-destructive/10">
-                {preview.issues.slice(0, 14).map((issue, index) => (
-                  <div key={`${issue.rowNumber}-${issue.field}-${index}`} className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[120px_160px_minmax(0,1fr)]">
-                    <span className="font-bold text-destructive">Row {issue.rowNumber}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{issue.field}</span>
-                    <span className="text-foreground">{issue.message}</span>
-                  </div>
-                ))}
-              </div>
-              {preview.issues.length > 14 && (
-                <p className="border-t border-destructive/20 px-4 py-3 text-xs text-muted-foreground">
-                  {preview.issues.length - 14} more issues hidden.
-                </p>
-              )}
-            </section>
-          ) : (
-            <section className="mt-5 overflow-hidden rounded-xl border border-border">
-              <div className="border-b border-border bg-muted/30 px-4 py-3">
-                <h3 className="font-bold">Ready to import</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Review the first rows before saving them to Supabase.</p>
-              </div>
-              {sampleRows.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">No product rows found in the workbook.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                        <th className="px-4 py-3">Row</th>
-                        <th className="px-4 py-3">Product</th>
-                        <th className="px-4 py-3">League</th>
-                        <th className="px-4 py-3">Season</th>
-                        <th className="px-4 py-3">Mode</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {sampleRows.map((row) => (
-                        <tr key={row.rowNumber}>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.rowNumber}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-bold">{row.name}</p>
-                            <p className="mt-0.5 font-mono text-xs text-muted-foreground">{row.slug}</p>
-                          </td>
-                          <td className="px-4 py-3">{row.leagueName}</td>
-                          <td className="px-4 py-3">{row.seasonName}</td>
-                          <td className="px-4 py-3">
-                            <span className="rounded-full border border-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em]">
-                              {row.existingProductId ? `Update ${row.matchedBy}` : "Create"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          )}
-        </div>
-
-        <div className="flex flex-col-reverse gap-3 border-t border-border p-5 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={importing}
-            className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onImport}
-            disabled={!canImport}
-            className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {importing ? "Importing..." : "Import Products"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ImportStat({ label, value, attention }: { label: string; value: string; attention?: boolean }) {
-  return (
-    <div className={`rounded-lg border px-4 py-3 ${attention ? "border-destructive/25 bg-destructive/5" : "border-border bg-muted/20"}`}>
-      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <strong className={attention ? "mt-1 block text-xl text-destructive" : "mt-1 block text-xl text-foreground"}>{value}</strong>
-    </div>
-  );
-}
 
 function PaymentsPanel({
   proofs,
@@ -4252,6 +3630,10 @@ function SettingsCrudPanel({
   onCancel,
   onSave,
   onDelete,
+  onSyncTeamLogos,
+  syncingTeamLogos,
+  onSyncLeagueLogos,
+  syncingLeagueLogos,
 }: {
   section: SettingSection;
   leagues: DbLeague[];
@@ -4263,10 +3645,53 @@ function SettingsCrudPanel({
   onCancel: () => void;
   onSave: (form: SettingFormState) => void;
   onDelete: (item: DbLeague | DbSeason | DbJerseySize | DbTeam) => void;
+  onSyncTeamLogos: () => void;
+  syncingTeamLogos: boolean;
+  onSyncLeagueLogos: () => void;
+  syncingLeagueLogos: boolean;
 }) {
   const title = getSettingTitle(section);
   const isSize = section === "sizes";
   const isTeam = section === "teams";
+  const isLeague = section === "leagues";
+  const isLogoSetting = isTeam || isLeague;
+  const [uploadingTeamLogo, setUploadingTeamLogo] = useState(false);
+
+  const uploadSettingLogo = async (file: File) => {
+    if (!editingForm || !isLogoSetting) return;
+    if (!allowedProductImageTypes.has(file.type)) {
+      window.alert("Only JPG, PNG, and WebP team logos are allowed.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      window.alert("Team logos must be 2 MB or smaller.");
+      return;
+    }
+
+    const parentLeagueSlug = leagues.find((league) => league.id === editingForm.league_id)?.slug ?? "other";
+    const entitySlug = slugify(editingForm.slug || editingForm.name) || (isTeam ? "team" : "league");
+    const extensionByType: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    const storagePath = isTeam
+      ? `${parentLeagueSlug}/${entitySlug}.${extensionByType[file.type]}`
+      : `${entitySlug}.${extensionByType[file.type]}`;
+    setUploadingTeamLogo(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.storage.from(isTeam ? teamLogoBucket : leagueLogoBucket).upload(storagePath, file, {
+      cacheControl: "31536000",
+      contentType: file.type,
+      upsert: true,
+    });
+    setUploadingTeamLogo(false);
+    if (error) {
+      window.alert(error.message);
+      return;
+    }
+    onChange({ ...editingForm, logo_path: storagePath });
+  };
 
   return (
     <section className="rounded-xl border border-border bg-background">
@@ -4275,13 +3700,26 @@ function SettingsCrudPanel({
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Settings</p>
           <h2 className="mt-1 text-lg font-bold">{title} CRUD</h2>
         </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground"
-        >
-          <Plus size={13} /> Add
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          {isLogoSetting && (
+            <button
+              type="button"
+              onClick={isTeam ? onSyncTeamLogos : onSyncLeagueLogos}
+              disabled={isTeam ? syncingTeamLogos : syncingLeagueLogos}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-border px-4 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors hover:border-primary/50 disabled:cursor-wait disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={(isTeam ? syncingTeamLogos : syncingLeagueLogos) ? "animate-spin" : ""} />
+              {(isTeam ? syncingTeamLogos : syncingLeagueLogos) ? "Syncing" : "Sync bundled logos"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground"
+          >
+            <Plus size={13} /> Add
+          </button>
+        </div>
       </div>
 
       {editingForm && (
@@ -4312,6 +3750,41 @@ function SettingsCrudPanel({
             )}
             <FormField label="Order" value={editingForm.sort_order} type="number" onChange={(value) => onChange({ ...editingForm, sort_order: value })} />
           </div>
+          {isLogoSetting && (
+            <div className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/25 p-4 sm:grid-cols-[72px_1fr_auto] sm:items-end">
+              <div className="relative size-[72px] overflow-hidden rounded-xl border border-border bg-background">
+                {editingForm.logo_path ? (
+                  isTeam ? (
+                    <TeamLogo logoPath={editingForm.logo_path} alt={`${editingForm.name || "Team"} logo`} sizes="72px" className="object-contain p-2" />
+                  ) : (
+                    <LeagueLogo logoPath={editingForm.logo_path} alt={`${editingForm.name || "League"} logo`} sizes="72px" className="object-contain p-2" />
+                  )
+                ) : (
+                  <div className="grid size-full place-items-center text-muted-foreground"><Trophy size={24} /></div>
+                )}
+              </div>
+              <FormField
+                label={`Supabase ${isTeam ? "team" : "league"} logo path`}
+                value={editingForm.logo_path}
+                placeholder={isTeam ? "premier-league/arsenal.png" : "premier-league.png"}
+                onChange={(value) => onChange({ ...editingForm, logo_path: value })}
+              />
+              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full border border-border px-4 text-[10px] font-bold uppercase tracking-[0.12em] hover:border-primary/50">
+                <Upload size={13} /> {uploadingTeamLogo ? "Uploading" : "Upload logo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={uploadingTeamLogo}
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadSettingLogo(file);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          )}
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" onClick={onCancel} className="h-10 rounded-full border border-border px-4 text-[10px] font-bold uppercase tracking-[0.12em]">
               Cancel
@@ -4329,7 +3802,9 @@ function SettingsCrudPanel({
         ) : rows.map((row) => {
           const isRowSize = "label" in row;
           const isRowTeam = "country" in row;
+          const isRowLeague = section === "leagues";
           const label = isRowSize ? row.label : row.name;
+          const rowLogoPath = "logo_path" in row ? row.logo_path : null;
           const detail = isRowTeam
             ? [row.leagues?.name, row.country].filter(Boolean).join(" · ") || "No league"
             : !isRowSize
@@ -4338,9 +3813,24 @@ function SettingsCrudPanel({
 
           return (
             <article key={row.id} className="grid gap-3 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div>
-                <h3 className="font-bold">{label}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+              <div className="flex min-w-0 items-center gap-3">
+                {(isRowTeam || isRowLeague) && (
+                  <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-border bg-background">
+                    {rowLogoPath ? (
+                      isRowTeam ? (
+                        <TeamLogo logoPath={rowLogoPath} alt={`${label} logo`} sizes="48px" className="object-contain p-1.5" />
+                      ) : (
+                        <LeagueLogo logoPath={rowLogoPath} alt={`${label} logo`} sizes="48px" className="object-contain p-1.5" />
+                      )
+                    ) : (
+                      <div className="grid size-full place-items-center text-muted-foreground"><Trophy size={17} /></div>
+                    )}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h3 className="truncate font-bold">{label}</h3>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{detail}{(isRowTeam || isRowLeague) && rowLogoPath ? ` · ${rowLogoPath}` : ""}</p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -4522,6 +4012,17 @@ function ProductEditor({
               onChange={(seasonId) => setField("season_id", seasonId)}
             />
             <FormField label="Fabric" value={form.fabric} onChange={(value) => setField("fabric", value)} />
+            <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Sleeve
+              <select
+                value={form.sleeve}
+                onChange={(event) => setField("sleeve", event.target.value as ProductSleeve)}
+                className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
+              >
+                <option value="short">Short sleeve</option>
+                <option value="long">Long sleeve</option>
+              </select>
+            </label>
             <ThemeColorsField value={form.country_colors} onChange={(value) => setField("country_colors", value)} />
             <div className="grid gap-2 md:col-span-2">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Sizes</p>
@@ -4636,7 +4137,7 @@ function ProductEditor({
             <div className="border-b border-border bg-muted/30 px-4 py-3">
               <h3 className="font-bold">Inventory by size and kit</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter the exact quantity available for each size. Disabled kits are saved with zero stock.
+                Stock is read-only here. Use Inventory to adjust quantities with an audit reason. New size rows start at zero.
               </p>
             </div>
             {selectedSizes.length === 0 ? (
@@ -4678,7 +4179,7 @@ function ProductEditor({
                                   inputMode="numeric"
                                   value={variant.available ? (variant.stockBySize[size.label] ?? "0") : "0"}
                                   onChange={(event) => setVariantStock(kit.id, size.label, event.target.value)}
-                                  disabled={!variant.available}
+                                  disabled
                                   aria-label={`${size.label} ${kit.label} stock`}
                                   className="h-10 w-full min-w-20 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                                 />
@@ -4804,11 +4305,13 @@ function FormField({
   value,
   onChange,
   type = "text",
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: "text" | "number";
+  placeholder?: string;
 }) {
   return (
     <label className="grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
@@ -4817,6 +4320,7 @@ function FormField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type={type}
+        placeholder={placeholder}
         className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
       />
     </label>

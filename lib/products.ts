@@ -50,7 +50,7 @@ export type CatalogProduct = {
   status: "draft" | "active" | "archived";
   created_at?: string;
   leagues?: { id: string; name: string } | null;
-  teams?: { id: string; name: string } | null;
+  teams?: { id: string; name: string; slug: string; logo_path?: string | null } | null;
   seasons?: { id: string; name: string } | null;
   product_variants?: CatalogVariant[];
 };
@@ -72,8 +72,25 @@ export type CatalogJersey = Omit<Jersey, "kits"> & {
   kits: Record<KitVariant, CatalogJerseyKit>;
 };
 
+export type CatalogTeam = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_path: string | null;
+  sort_order: number;
+  leagues?: { id: string; name: string; slug: string; logo_path?: string | null } | null;
+};
+
+export type CatalogLeague = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_path: string | null;
+  sort_order: number;
+};
+
 export const catalogProductSelect =
-  "*, leagues(id, name), teams(id, name), seasons(id, name), product_variants(*, inventory(*))";
+  "*, leagues(id, name), teams(*), seasons(id, name), product_variants(*, inventory(*))";
 
 export function getPublicProductImage(path?: string | null) {
   if (!path) return "/assets/tisa-shirt.png";
@@ -156,6 +173,7 @@ export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
     product,
     name: product.name,
     team: product.teams?.name ?? product.team,
+    teamLogoPath: product.teams?.logo_path ?? null,
     category: product.leagues?.name ?? product.category,
     league: product.leagues?.name ?? product.category,
     collection: product.collection ?? product.seasons?.name ?? product.season ?? "",
@@ -193,6 +211,30 @@ export async function loadCatalogProducts() {
 export async function loadCatalogJerseys() {
   const products = await loadCatalogProducts();
   return products.map(productToCatalogJersey);
+}
+
+export async function loadCatalogTeams() {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("teams")
+    .select("*, leagues(*)")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as CatalogTeam[];
+}
+
+export async function loadCatalogLeagues() {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("leagues")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as CatalogLeague[];
 }
 
 export async function loadCatalogJersey(idOrSlug: string) {
