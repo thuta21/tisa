@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, ClipboardCheck, Minus, Plus, RotateCcw, ShoppingBag, Truck } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
@@ -22,7 +23,12 @@ import {
   type DbFont,
   type KitVariant,
 } from "@/lib/jerseys";
-import { loadCatalogJersey, type CatalogJersey, type CatalogJerseyKit } from "@/lib/products";
+import {
+  loadCatalogJerseys,
+  type CatalogJersey,
+  type CatalogJerseyKit,
+} from "@/lib/products";
+import { getJerseySleeve, getSleeveAlternatives, sleeveOptions } from "@/lib/product-sleeves";
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
@@ -38,8 +44,10 @@ function getJerseyPreviewUrl(fontSlug: string, text: string, color: string) {
 }
 
 export default function JerseyDetail({ id }: { id: string }) {
+  const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
   const [jersey, setJersey] = useState<CatalogJersey | null>(null);
+  const [catalogJerseys, setCatalogJerseys] = useState<CatalogJersey[]>([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState("front");
@@ -57,9 +65,11 @@ export default function JerseyDetail({ id }: { id: string }) {
 
   useEffect(() => {
     let mounted = true;
-    loadCatalogJersey(id)
-      .then((item) => {
+    loadCatalogJerseys()
+      .then((items) => {
         if (!mounted) return;
+        const item = items.find((candidate) => candidate.slug === id || candidate.productId === id) ?? null;
+        setCatalogJerseys(items);
         setJersey(item);
         if (item) {
           const firstKit = kitOptions.find((kit) => item.kits[kit.id]?.available)?.id ?? "home";
@@ -146,6 +156,8 @@ export default function JerseyDetail({ id }: { id: string }) {
   const displayImage = activeImage === "front" ? kitImage : (selectedKitData.imageBack || jersey.image_back || kitImage);
   const imageFilter = `drop-shadow(0 25px 40px rgba(0,0,0,0.34)) ${kitImageFilters[selectedKit]}`;
   const selectedPrice = getJerseyKitPrice(jersey, selectedKit);
+  const selectedSleeve = getJerseySleeve(jersey);
+  const sleeveAlternatives = getSleeveAlternatives(catalogJerseys, jersey);
 
   const hasCustomization = !!(customName.trim() || customNumber.trim());
   const customizationFee = hasCustomization ? prices.customization : 0;
@@ -365,7 +377,32 @@ export default function JerseyDetail({ id }: { id: string }) {
                 {jersey.description}
               </p>
 
-              <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-black/[0.08] pb-6">
+              <div className="mt-6 border-t border-black/[0.08] pt-5">
+                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Sleeve type</p>
+                <div className="mt-2 grid grid-cols-2 gap-2" role="group" aria-label="Choose sleeve type">
+                  {sleeveOptions.map((option) => {
+                    const alternative = sleeveAlternatives.find(
+                      (item) => getJerseySleeve(item) === option.id,
+                    );
+                    const active = selectedSleeve === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        disabled={!alternative}
+                        aria-pressed={active}
+                        onClick={() => alternative && router.push(`/jersey/${alternative.slug}`)}
+                        className={`min-h-12 rounded-xl border px-3 text-sm font-semibold transition-all ${active ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(225,7,20,0.16)]" : alternative ? "border-black/10 bg-white hover:border-primary/50 hover:text-primary" : "cursor-not-allowed border-black/[0.06] bg-black/[0.02] text-muted-foreground/35"}`}
+                      >
+                        {option.label}
+                        {!alternative && <span className="mt-0.5 block text-[10px] font-normal">Unavailable</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-b border-black/[0.08] pb-6">
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Your total</p>
                   <span className="price-display mt-1 block text-4xl">{selectedPrice > 0 ? formatPriceAED(lineItemUnitPrice) : "Price pending"}</span>

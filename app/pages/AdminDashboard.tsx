@@ -3479,7 +3479,7 @@ function PrintSlipPreview({ order, onClose }: { order: DbOrder; onClose: () => v
             <div className="flex items-center gap-3 border-b border-neutral-300 pb-4">
               <Image src="/assets/tisa-logo.png" alt="TISA logo" width={42} height={42} className="rounded-md" />
               <div>
-                <h1 className="text-xl font-black tracking-[0.08em]">TISA Sportwears</h1>
+                <h1 className="text-xl font-black tracking-[0.08em]">TISA Sportswear</h1>
                 <p className="text-[9px] uppercase tracking-[0.14em] text-neutral-500">Order slip</p>
               </div>
             </div>

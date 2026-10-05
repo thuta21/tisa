@@ -14,7 +14,12 @@ import {
   type Jersey,
   type KitVariant,
 } from "@/lib/jerseys";
-import type { CatalogLeague, CatalogTeam } from "@/lib/products";
+import {
+  type CatalogJersey,
+  type CatalogLeague,
+  type CatalogTeam,
+} from "@/lib/products";
+import { getJerseySleeve, getSleeveAlternatives, sleeveOptions } from "@/lib/product-sleeves";
 import TeamLogo from "@/components/jersey/TeamLogo";
 import LeagueLogo from "@/components/jersey/LeagueLogo";
 
@@ -50,8 +55,8 @@ function getSeasonLabel(jersey: Jersey) {
 }
 
 function getProductOptionLabel(jersey: Jersey) {
-  const catalogJersey = jersey as Jersey & { product?: { sleeve?: "short" | "long" } };
-  const sleeve = catalogJersey.product?.sleeve === "long" ? "Long sleeve" : "Short sleeve";
+  const catalogJersey = jersey as CatalogJersey;
+  const sleeve = sleeveOptions.find((option) => option.id === getJerseySleeve(catalogJersey))?.label;
   return `${getSeasonLabel(jersey)} · ${sleeve}`;
 }
 
@@ -193,6 +198,10 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
     stock?: number;
   };
   const sizes = selectedKitData.sizes?.length ? selectedKitData.sizes : selectedJersey.sizes;
+  const sleeveAlternatives = getSleeveAlternatives(
+    jerseys as CatalogJersey[],
+    selectedJersey as CatalogJersey,
+  );
 
   const selectLeague = (league: string) => {
     const nextJersey = jerseys.find((jersey) => jersey.league === league);
@@ -342,7 +351,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
             </AnimatePresence>
           </div>
 
-          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className="mx-1 h-8 w-px shrink-0 bg-black/10" aria-hidden="true" />
 
             <div className="flex items-center gap-1.5" role="tablist" aria-label="Choose a team">
@@ -360,7 +369,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                   aria-label={available ? team : `${team}, coming soon`}
                   title={available ? team : `${team} — Coming soon`}
                   onClick={() => selectTeam(team)}
-                  className={`relative flex size-12 shrink-0 items-center justify-center rounded-[14px] border p-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-[#E10714]/20 ${active ? "border-[#E10714] bg-[#E10714]/[0.055] text-[#E10714] shadow-[0_8px_20px_rgba(225,7,20,0.12)]" : available ? "border-transparent bg-black/[0.025] text-neutral-600 hover:-translate-y-0.5 hover:border-[#E10714]/30 hover:bg-white hover:text-[#E10714] hover:shadow-md" : "border-transparent bg-black/[0.018] text-neutral-400 opacity-60 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:opacity-100 hover:shadow-md"}`}
+                  className={`relative flex size-12 shrink-0 items-center justify-center rounded-[14px] border border-transparent p-2 outline-none transition-[background-color,color,box-shadow,opacity] duration-200 focus-visible:ring-2 focus-visible:ring-[#E10714]/25 ${active ? "bg-[#E10714]/[0.055] text-[#E10714] shadow-[inset_0_0_0_1px_#E10714,0_6px_16px_rgba(225,7,20,0.10)]" : available ? "bg-black/[0.025] text-neutral-600 hover:bg-white hover:text-[#E10714] hover:shadow-[inset_0_0_0_1px_rgba(225,7,20,0.30)]" : "bg-black/[0.018] text-neutral-400 opacity-60 hover:bg-white hover:opacity-100 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.10)]"}`}
                 >
                   {teamLogo ? (
                     <span className="relative size-8 shrink-0">
@@ -540,6 +549,31 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
           <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, ready for your name and number.`}</p>
 
           <div className="mt-6 border-t border-black/[0.06] pt-5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose sleeve</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {sleeveOptions.map((option) => {
+                const alternative = sleeveAlternatives.find(
+                  (item) => getJerseySleeve(item) === option.id,
+                );
+                const active = getJerseySleeve(selectedJersey as CatalogJersey) === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={!alternative}
+                    aria-pressed={active}
+                    onClick={() => alternative && setSelectedProductId(alternative.id)}
+                    className={`min-h-11 rounded-xl border px-3 text-xs font-semibold transition-all ${active ? "border-[#E10714] bg-[#E10714] text-white shadow-[0_8px_20px_rgba(225,7,20,0.16)]" : alternative ? "border-black/[0.08] bg-white/70 text-neutral-700 hover:border-[#E10714]/50 hover:text-[#E10714]" : "cursor-not-allowed border-black/[0.05] bg-white/30 text-neutral-300"}`}
+                  >
+                    {option.label}
+                    {!alternative && <span className="ml-1 font-normal">— unavailable</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-5 border-t border-black/[0.06] pt-5">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose kit</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {kitOptions.map((kit) => {
