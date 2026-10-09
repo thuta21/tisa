@@ -1,0 +1,111 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "slug": "psg-2026-27-player",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/psg-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-b5796738-e806-4851-ae53-2f1ebeb4e485.png",
+      "originalPath": "/Users/thutaminthway/Downloads/psg-home-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/psg-2026-27-player/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/psg-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 783726,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1888768,
+      "webpBytes": 221378,
+      "sha256": "7826f8a7da90105c9b75caa4e2f4fbefda5f5ca381ab87cdd00fa72a9735972a"
+    },
+    {
+      "slug": "psg-2026-27-player",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/psg-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-ea557d2c-8094-4f85-bc88-0e4d27564425.png",
+      "originalPath": "/Users/thutaminthway/Downloads/psg-home-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/psg-2026-27-player/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/psg-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 776593,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1895040,
+      "webpBytes": 221846,
+      "sha256": "8c7378161cb69a1da8edae7c656195208dd785cc233e95f90575b5bc76b4d83e"
+    },
+    {
+      "slug": "psg-2026-27-player",
+      "kit": "away",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/psg-2026-27-player/away/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-358e8c66-4337-4f39-a60a-d9fd26cf0b4a.png",
+      "originalPath": "/Users/thutaminthway/Downloads/psg-away-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/psg-2026-27-player/away/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/psg-2026-27-player/away/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 743644,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1911656,
+      "webpBytes": 208802,
+      "sha256": "cecd6bfd3f5bfb337ce21bfbe5f00839ef031d34b1012471ea0cdd5771ea1bc2"
+    },
+    {
+      "slug": "psg-2026-27-player",
+      "kit": "away",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/psg-2026-27-player/away/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-f1076ac7-08c3-4d5f-a252-a038e16820eb.png",
+      "originalPath": "/Users/thutaminthway/Downloads/psg-away-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/psg-2026-27-player/away/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/psg-2026-27-player/away/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 783595,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1823599,
+      "webpBytes": 183568,
+      "sha256": "4dbecd6e3d6e8fcbeaf1e9aeacab20a6cc751b4e76222b6cc9cf172202e2045e"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:23:33.504Z",
+  "catalogLinks": [
+    {
+      "id": "584b66d9-fc92-4c19-bfa6-35e7745338cd",
+      "product_id": "ac96f316-32dd-461f-84b4-1a5321b1c5f5",
+      "kit": "away",
+      "available": true,
+      "image_front_path": "products/psg-2026-27-player/away/front.webp",
+      "image_back_path": "products/psg-2026-27-player/away/back.webp"
+    },
+    {
+      "id": "a8c5b919-894c-4d4c-86c2-8e74600c2816",
+      "product_id": "ac96f316-32dd-461f-84b4-1a5321b1c5f5",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/psg-2026-27-player/home/front.webp",
+      "image_back_path": "products/psg-2026-27-player/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.554Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

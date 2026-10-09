@@ -3,11 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 const footerLinks = [
-  { href: "/shop", label: "Shop" },
+  { href: "/shop", label: "Collection" },
   { href: "/customer-care#size-guide", label: "Fit Guide" },
-  { href: "/customer-care#delivery", label: "Delivery & Exchanges" },
-  { href: "/customer-care#payment", label: "Payment Information" },
-  { href: "/contact", label: "Contact" },
+  { href: "/contact", label: "About TISA" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
 ];
@@ -21,8 +19,8 @@ export default function Footer() {
             <Image src="/assets/tisa-logo.png" alt="" width={30} height={30} className="rounded-md object-cover" />
             <span className="text-sm font-semibold tracking-[0.18em] text-primary">TISA</span>
           </Link>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground sm:max-w-none sm:whitespace-nowrap">
-            Match-day kits with clear stock, sizing and order-review information.
+          <p className="mt-3 text-sm leading-6 text-muted-foreground max-w-md">
+            A first look at the TISA collection. Online ordering is not open yet.
           </p>
           <p className="mt-3 text-xs text-muted-foreground">© 2026 TISA</p>
         </div>

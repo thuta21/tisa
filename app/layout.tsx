@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { CartProvider } from "@/lib/CartContext";
-import { AuthProvider } from "@/lib/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TISA",
-  description: "Premium match jersey showroom",
+  description: "TISA football jersey collection preview. Online ordering is not open yet.",
 };
 
 export default function RootLayout({
@@ -19,7 +17,7 @@ export default function RootLayout({
       className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider><CartProvider>{children}</CartProvider></AuthProvider>
+        {children}
       </body>
     </html>
   );

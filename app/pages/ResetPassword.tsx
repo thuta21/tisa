@@ -40,13 +40,17 @@ export default function ResetPassword() {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
       await supabase.auth.signOut({ scope: "local" });
-      window.location.assign("/login?reset=success");
+      window.location.assign("/admin/login?reset=success");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to reset password");
     } finally {
       setLoading(false);
     }
   };
+
+  if (sessionReady === null) {
+    return <AuthLayout icon={Lock} title="Checking reset link"><p role="status" className="text-center text-sm text-muted-foreground">Please wait while we verify your session.</p></AuthLayout>;
+  }
 
   if (sessionReady === false) {
     return (

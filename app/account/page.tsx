@@ -1,14 +1,5 @@
-import CustomerAccount from "@/app/pages/CustomerAccount";
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Metadata } from "next";
+import LaunchNotice from "@/components/LaunchNotice";
 
-export const dynamic = "force-dynamic";
-
-export default async function AccountPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-
-  if (error || !data?.claims?.sub) redirect("/login?next=/account");
-
-  return <CustomerAccount />;
-}
+export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
+export default LaunchNotice;

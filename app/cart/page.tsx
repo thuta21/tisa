@@ -1,3 +1,5 @@
-import Cart from "@/app/pages/Cart";
+import type { Metadata } from "next";
+import LaunchNotice from "@/components/LaunchNotice";
 
-export default Cart;
+export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
+export default LaunchNotice;

@@ -1,0 +1,53 @@
+{
+  "verifiedAt": "2026-10-09T13:25:51.572Z",
+  "checks": [
+    {
+      "slug": "real-madrid-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "homepage",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Freal-madrid-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "homepage",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Fback.webp&w=1080&q=75"
+    },
+    {
+      "slug": "real-madrid-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Freal-madrid-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "real-madrid-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Freal-madrid-2026-27-player-long-sleeve%2Fhome%2Fback.webp&w=1080&q=75"
+    }
+  ]
+}

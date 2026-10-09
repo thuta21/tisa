@@ -1,0 +1,83 @@
+{
+  "processedOn": "2026-10-09",
+  "generator": "Built-in image_gen",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/tottenham-hotspur-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-926cfb8d-0536-4dca-bc36-3349944a48ae.png",
+      "bucket": "product-images",
+      "storagePath": "products/tottenham-hotspur-2026-27-player/home/front.webp",
+      "format": "webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "fullyTransparentPixels": 783496,
+      "pngBytes": 1835052,
+      "webpBytes": 195432,
+      "originalBytes": 579845,
+      "reductionFromPngPercent": 89,
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/tottenham-hotspur-2026-27-player/home/front.webp",
+      "sha256": "3c9b761338bfc4966b1d9ed012bb66f48900aca24da7cc25604ba060a826a59a",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    },
+    {
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/tottenham-hotspur-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-0fae8638-5f55-49c0-9b4d-1d24083b7b12.png",
+      "bucket": "product-images",
+      "storagePath": "products/tottenham-hotspur-2026-27-player/home/back.webp",
+      "format": "webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "cornerAlpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "fullyTransparentPixels": 812786,
+      "pngBytes": 1640920,
+      "webpBytes": 142276,
+      "originalBytes": 667705,
+      "reductionFromPngPercent": 91,
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/tottenham-hotspur-2026-27-player/home/back.webp",
+      "sha256": "7b9fcd448dac976127849956869030ee9246304b9347d8a9f9ae3cd3bba095c1",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    }
+  ],
+  "verifiedAt": "2026-10-08T21:34:21.625Z",
+  "catalogLink": {
+    "productId": "2aa1e520-aff7-4ee7-b63c-e58bb3fd1b83",
+    "variantId": "9862bf29-137b-4514-9f29-33a5b08c4295",
+    "kit": "home",
+    "sleeve": "short",
+    "linkedAt": "2026-10-08T21:41:07.944Z",
+    "previousPaths": {
+      "image_front_path": null,
+      "image_back_path": null
+    },
+    "verifiedViews": [
+      "homepage front",
+      "jersey detail front",
+      "jersey detail back"
+    ],
+    "verificationUrl": "http://localhost:3000/jersey/tottenham-hotspur-2026-27-player"
+  }
+}

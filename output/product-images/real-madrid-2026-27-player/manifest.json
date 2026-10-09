@@ -1,0 +1,122 @@
+{
+  "processedOn": "2026-10-09",
+  "generator": "Built-in image_gen",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/real-madrid-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-0d3f89a0-b7c6-4a1b-b4d0-bd6f17d26923.png",
+      "originalPath": "/Users/thutaminthway/Downloads/real-madrid-home-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/real-madrid-2026-27-player/home/front.webp",
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/real-madrid-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 732316,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1716838,
+      "webpBytes": 168438,
+      "sha256": "ee3b6c4293aab90adec69abb794c25924fcf7c9b465b7d67e7a53effdce2ebc0",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    },
+    {
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/real-madrid-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-9f997292-d2d9-49e6-8e01-7634a381c2f0.png",
+      "originalPath": "/Users/thutaminthway/Downloads/real-madrid-home-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/real-madrid-2026-27-player/home/back.webp",
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/real-madrid-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 777050,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1799000,
+      "webpBytes": 189834,
+      "sha256": "9f14a7291fcb8b9ffd3dbe0ab25018652ae7afb997b17cba5c2adf5a6d38c20d",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    },
+    {
+      "kit": "away",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/real-madrid-2026-27-player/away/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-1cb057ed-8778-47b4-9465-0dd9cb3f0e8f.png",
+      "originalPath": "/Users/thutaminthway/Downloads/real-madrid-away-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/real-madrid-2026-27-player/away/front.webp",
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/real-madrid-2026-27-player/away/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 740229,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1978431,
+      "webpBytes": 237920,
+      "sha256": "9478301017b7850958276dc6184ec069f3a69cba816479dd86085fdc4b25dcd3",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    },
+    {
+      "kit": "away",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/real-madrid-2026-27-player/away/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-674e07b7-1249-408c-b6cc-84604f5cc46d.png",
+      "originalPath": "/Users/thutaminthway/Downloads/real-madrid-away-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/real-madrid-2026-27-player/away/back.webp",
+      "publicUrl": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/real-madrid-2026-27-player/away/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 851022,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1729546,
+      "webpBytes": 204302,
+      "sha256": "0ec7d94330a3e0f9f154f196cdd4593901411dc1f712298f1e655a27c8ed8197",
+      "verifiedHttpStatus": 200,
+      "verifiedContentType": "image/webp"
+    }
+  ],
+  "verifiedAt": "2026-10-08T22:06:41.581Z",
+  "catalogLink": {
+    "productId": "c6630da1-b8c9-41d8-834d-df5731ebb730",
+    "sleeve": "short",
+    "variantIds": {
+      "home": "4fb5630d-cca4-4ec4-8337-f25ec42d2c66",
+      "away": "87b8334d-8451-40bc-b738-d6ae646150e4"
+    },
+    "linkedAt": "2026-10-08T22:10:45.055Z",
+    "previousPaths": {
+      "home": {
+        "image_front_path": null,
+        "image_back_path": null
+      },
+      "away": {
+        "image_front_path": null,
+        "image_back_path": null
+      }
+    },
+    "verifiedViews": [
+      "homepage Home front",
+      "homepage Away front",
+      "jersey detail Home front",
+      "jersey detail Home back",
+      "jersey detail Away front",
+      "jersey detail Away back"
+    ],
+    "verificationUrl": "http://localhost:3000/jersey/real-madrid-2026-27-player"
+  }
+}

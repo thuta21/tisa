@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "31a1523f-3f3c-45e3-8e15-fc6ed5f67457",
+  "variantId": "1880764a-d490-4234-8743-577612f92e37",
+  "files": [
+    {
+      "slug": "manchester-united-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/manchester-united-2026-27-player-long-sleeve/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-6db27064-332a-443b-9e6f-d1b9d8439923.png",
+      "originalPath": "/Users/thutaminthway/Downloads/manchester-united-long-sleeve-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/manchester-united-2026-27-player-long-sleeve/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/manchester-united-2026-27-player-long-sleeve/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 568127,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2142828,
+      "webpBytes": 236778,
+      "sha256": "bce8cf637ad9123b1e745568b5430be6cf94d270e39ac432261917c57271bc14"
+    },
+    {
+      "slug": "manchester-united-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/manchester-united-2026-27-player-long-sleeve/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-4dd48380-da4c-4003-acff-ef10fe838f74.png",
+      "originalPath": "/Users/thutaminthway/Downloads/manchester-united-long-sleeve-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/manchester-united-2026-27-player-long-sleeve/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/manchester-united-2026-27-player-long-sleeve/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 632382,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2115105,
+      "webpBytes": 226236,
+      "sha256": "4eec476f1ade57208b88c170bee22cd01dc4739310dfe66ff13d04c1ddbd0564"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:32:10.899Z",
+  "catalogLinks": [
+    {
+      "id": "1880764a-d490-4234-8743-577612f92e37",
+      "product_id": "31a1523f-3f3c-45e3-8e15-fc6ed5f67457",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/manchester-united-2026-27-player-long-sleeve/home/front.webp",
+      "image_back_path": "products/manchester-united-2026-27-player-long-sleeve/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.564Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

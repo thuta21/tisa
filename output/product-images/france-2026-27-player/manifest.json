@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "f0e2aefd-6da8-4514-9642-d2ec536c3daf",
+  "variantId": "16e061df-6bb5-4902-ae5f-b0d34cd222fd",
+  "files": [
+    {
+      "slug": "france-2026-27-player",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/france-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-6238aa25-f5eb-4684-8ae3-46b145475a52.png",
+      "originalPath": "/Users/thutaminthway/Downloads/france-home-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/france-2026-27-player/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/france-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 749959,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1981001,
+      "webpBytes": 225534,
+      "sha256": "25c2044ab845cb7213141001ab67ddf0d3181af6a60c11e21c155098045516b3"
+    },
+    {
+      "slug": "france-2026-27-player",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/france-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-0d89f4fe-e785-4486-9358-7f423e6395f0.png",
+      "originalPath": "/Users/thutaminthway/Downloads/france-home-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/france-2026-27-player/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/france-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 807693,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1864931,
+      "webpBytes": 223478,
+      "sha256": "7d0accfeb2a996f208d610b309f9055255e135aef04337c6d7182e7e9685c7cf"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:28:15.674Z",
+  "catalogLinks": [
+    {
+      "id": "16e061df-6bb5-4902-ae5f-b0d34cd222fd",
+      "product_id": "f0e2aefd-6da8-4514-9642-d2ec536c3daf",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/france-2026-27-player/home/front.webp",
+      "image_back_path": "products/france-2026-27-player/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.558Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

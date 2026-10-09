@@ -1,29 +1,42 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Ruler, X } from "lucide-react";
 import { playerVersionSizeChart } from "@/lib/size-guide";
 
 export default function SizeGuideModal({
   open,
   onClose,
-  availableSizes,
+  availableSizes = [],
 }: {
   open: boolean;
   onClose: () => void;
-  availableSizes: string[];
+  availableSizes?: string[];
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const prefersReducedMotion = useReducedMotion();
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
+      if (event.key === "Tab") {
+        const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>("button");
+        const first = buttons?.[0];
+        const last = buttons?.[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
     };
   }, [onClose, open]);
 
@@ -35,20 +48,21 @@ export default function SizeGuideModal({
             type="button"
             aria-label="Close size guide"
             className="absolute inset-0 cursor-default bg-black/35"
-            initial={{ opacity: 0 }}
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
           <motion.aside
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="size-guide-title"
             className="absolute inset-y-0 right-0 flex w-full max-w-[42rem] flex-col bg-background shadow-2xl"
-            initial={{ x: "100%" }}
+            initial={prefersReducedMotion ? false : { x: "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 330, damping: 34 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
+            transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", stiffness: 330, damping: 34 }}
           >
             <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7 sm:py-6">
               <div className="flex gap-3">
@@ -56,7 +70,7 @@ export default function SizeGuideModal({
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Player version jersey</p>
                   <h2 id="size-guide-title" className="mt-1 text-2xl font-bold tracking-tight">Size guide</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Compare the chart with the sizes available for this kit.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Compare the chart with a shirt you already own.</p>
                 </div>
               </div>
               <button type="button" onClick={onClose} aria-label="Close size guide" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"><X size={18} /></button>
@@ -76,7 +90,7 @@ export default function SizeGuideModal({
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground"><span className="mr-1 inline-block size-2 rounded-full bg-primary" />Highlighted sizes are in stock for the selected kit.</p>
+                {availableSizes.length > 0 && <p className="mt-3 text-xs text-muted-foreground"><span className="mr-1 inline-block size-2 rounded-full bg-primary" />Highlighted sizes are in stock for the selected kit.</p>}
               </section>
 
               <section className="mt-8 border-t border-border pt-6">
@@ -95,7 +109,7 @@ export default function SizeGuideModal({
               </div>
             </div>
 
-            <footer className="border-t border-border p-4 sm:px-7 sm:py-5"><button type="button" onClick={onClose} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Continue choosing size</button></footer>
+            <footer className="border-t border-border p-4 sm:px-7 sm:py-5"><button type="button" onClick={onClose} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Back to jersey details</button></footer>
           </motion.aside>
         </div>
       )}

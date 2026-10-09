@@ -15,7 +15,7 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <main id="main-content" className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
@@ -31,6 +31,6 @@ export default function AuthLayout({
           <p className="text-center text-sm text-muted-foreground mt-6">{footer}</p>
         )}
       </div>
-    </div>
+    </main>
   );
 }

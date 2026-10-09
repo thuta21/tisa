@@ -5,16 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Check, ChevronDown, Clock3, Search, Shirt, X } from "lucide-react";
 import {
-  formatPriceAED,
-  getFirstAvailableKit,
   getJerseyKitImage,
-  getJerseyKitPrice,
-  isJerseyKitAvailable,
   kitOptions,
   type Jersey,
   type KitVariant,
 } from "@/lib/jerseys";
 import {
+  getCatalogPreviewKit,
+  isCatalogKitPreviewAvailable,
   type CatalogJersey,
   type CatalogLeague,
   type CatalogTeam,
@@ -22,12 +20,13 @@ import {
 import { getJerseySleeve, getSleeveAlternatives, sleeveOptions } from "@/lib/product-sleeves";
 import TeamLogo from "@/components/jersey/TeamLogo";
 import LeagueLogo from "@/components/jersey/LeagueLogo";
+import { getDefaultLeagueLogo } from "@/lib/league-logos";
 
 type FeaturedJerseyShowcaseProps = {
-  jerseys: Jersey[];
+  jerseys: CatalogJersey[];
   catalogTeams: CatalogTeam[];
   catalogLeagues: CatalogLeague[];
-  onSelect: (jersey: Jersey) => void;
+  onSelect: (jersey: CatalogJersey) => void;
 };
 
 function unique(values: string[]) {
@@ -54,9 +53,8 @@ function getSeasonLabel(jersey: Jersey) {
   return jersey.season || jersey.collection || "Current season";
 }
 
-function getProductOptionLabel(jersey: Jersey) {
-  const catalogJersey = jersey as CatalogJersey;
-  const sleeve = sleeveOptions.find((option) => option.id === getJerseySleeve(catalogJersey))?.label;
+function getProductOptionLabel(jersey: CatalogJersey) {
+  const sleeve = sleeveOptions.find((option) => option.id === getJerseySleeve(jersey))?.label;
   return `${getSeasonLabel(jersey)} · ${sleeve}`;
 }
 
@@ -80,12 +78,12 @@ function colorWithAlpha(color: string, alpha: number) {
 
 export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogLeagues, onSelect }: FeaturedJerseyShowcaseProps) {
   const prefersReducedMotion = useReducedMotion();
-  const firstJersey = jerseys[0];
+  const firstJersey = jerseys.find((jersey) => jersey.image_front !== "/assets/jersey-placeholder.svg") ?? jerseys[0];
   const [selectedLeague, setSelectedLeague] = useState(firstJersey?.league ?? "");
   const [selectedTeam, setSelectedTeam] = useState(firstJersey?.team ?? "");
   const [selectedProductId, setSelectedProductId] = useState(firstJersey?.id ?? "");
-  const [selectedKit, setSelectedKit] = useState<KitVariant>(
-    firstJersey ? getFirstAvailableKit(firstJersey) : "home",
+  const [selectedKit, setSelectedKit] = useState<KitVariant | null>(
+    firstJersey ? getCatalogPreviewKit(firstJersey) : null,
   );
   const [leagueMenuOpen, setLeagueMenuOpen] = useState(false);
   const [leagueSearch, setLeagueSearch] = useState("");
@@ -93,12 +91,8 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
   const [comingSoonTeam, setComingSoonTeam] = useState<string | null>(null);
 
   const leagues = useMemo(
-    () => unique([
-      ...catalogLeagues.map((league) => league.name),
-      ...catalogTeams.map((team) => team.leagues?.name ?? ""),
-      ...jerseys.map((jersey) => jersey.league),
-    ]),
-    [catalogLeagues, catalogTeams, jerseys],
+    () => unique(jerseys.map((jersey) => jersey.league)),
+    [jerseys],
   );
   const filteredLeagues = useMemo(() => {
     const query = leagueSearch.trim().toLowerCase();
@@ -110,27 +104,14 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
   );
   const teams = useMemo(() => {
     const teamNames = new Map<string, string>();
-    const productTeamKeys = new Set(leagueJerseys.map((jersey) => getTeamKey(jersey.team)));
-    const databaseTeams = catalogTeams
-      .filter((team) => team.leagues?.name === selectedLeague)
-      .map((team) => team.name);
-
-    [...databaseTeams, ...leagueJerseys.map((jersey) => jersey.team)].forEach((team) => {
-      const key = getTeamKey(team);
-      if (!teamNames.has(key)) teamNames.set(key, team);
+    leagueJerseys.forEach((jersey) => {
+      const key = getTeamKey(jersey.team);
+      if (!teamNames.has(key)) teamNames.set(key, jersey.team);
     });
-
-    return Array.from(teamNames.values()).sort((firstTeam, secondTeam) => {
-      const firstHasProduct = productTeamKeys.has(getTeamKey(firstTeam));
-      const secondHasProduct = productTeamKeys.has(getTeamKey(secondTeam));
-
-      if (firstHasProduct !== secondHasProduct) {
-        return firstHasProduct ? -1 : 1;
-      }
-
-      return firstTeam.localeCompare(secondTeam, "en", { sensitivity: "base" });
-    });
-  }, [catalogTeams, leagueJerseys, selectedLeague]);
+    return Array.from(teamNames.values()).sort((first, second) =>
+      first.localeCompare(second, "en", { sensitivity: "base" }),
+    );
+  }, [leagueJerseys]);
   const logoPathsByTeam = useMemo(() => {
     const logoPaths = new Map<string, string>();
     catalogTeams.forEach((team) => {
@@ -183,24 +164,16 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
 
   if (!selectedJersey) return null;
 
-  const activeKit = isJerseyKitAvailable(selectedJersey, selectedKit)
-    ? selectedKit
-    : getFirstAvailableKit(selectedJersey);
+  const activeKit = getCatalogPreviewKit(selectedJersey, selectedKit);
   const colors = selectedJersey.country_colors;
   const primaryColor = colors[0] ?? "#171717";
   const secondaryColor = colors[1] ?? "#f5f5f5";
   const accentColor = colors[2] ?? primaryColor;
-  const selectedPrice = getJerseyKitPrice(selectedJersey, activeKit);
-  const selectedLeagueLogo = logoPathsByLeague.get(selectedLeague.trim().toLowerCase());
+  const selectedLeagueLogo = logoPathsByLeague.get(selectedLeague.trim().toLowerCase()) ?? getDefaultLeagueLogo(selectedLeague);
   const selectedTeamLogo = logoPathsByTeam.get(getTeamKey(selectedJersey.team));
-  const selectedKitData = selectedJersey.kits[activeKit] as typeof selectedJersey.kits[typeof activeKit] & {
-    sizes?: string[];
-    stock?: number;
-  };
-  const sizes = selectedKitData.sizes?.length ? selectedKitData.sizes : selectedJersey.sizes;
   const sleeveAlternatives = getSleeveAlternatives(
-    jerseys as CatalogJersey[],
-    selectedJersey as CatalogJersey,
+    jerseys,
+    selectedJersey,
   );
 
   const selectLeague = (league: string) => {
@@ -320,7 +293,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                     {filteredLeagues.length > 0 ? filteredLeagues.map((league, index) => {
                       const selected = league === selectedLeague;
                       const highlighted = index === highlightedLeagueIndex;
-                      const leagueLogo = logoPathsByLeague.get(league.trim().toLowerCase());
+                      const leagueLogo = logoPathsByLeague.get(league.trim().toLowerCase()) ?? getDefaultLeagueLogo(league);
                       return (
                         <button
                           key={league}
@@ -460,23 +433,16 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
           className="order-2 z-20 grid grid-cols-2 gap-5 rounded-[24px] border border-white/80 bg-white/76 p-5 shadow-[0_20px_60px_rgba(22,22,22,0.065)] backdrop-blur-2xl md:order-1 md:block md:p-6"
         >
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Price</p>
-            <p className="mt-1.5 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">{formatPriceAED(selectedPrice)}</p>
-            <p className="mt-1 text-[11px] font-medium text-neutral-400">VAT included</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Season</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight">{getSeasonLabel(selectedJersey)}</p>
           </div>
           <div className="md:mt-7 md:border-t md:border-black/[0.06] md:pt-6">
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Available sizes</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {sizes.length > 0 ? sizes.slice(0, 6).map((size) => (
-                <span key={size} className="grid h-9 min-w-9 place-items-center rounded-full border border-black/[0.08] bg-white px-2.5 text-[11px] font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#E10714] hover:bg-[#E10714] hover:text-white hover:shadow-md hover:shadow-[#E10714]/15">{size}</span>
-              )) : <span className="text-sm text-neutral-500">Check details</span>}
-            </div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Kit design</p>
+            <p className="mt-2 text-sm font-medium">{kitOptions.find((kit) => kit.id === activeKit)?.label ?? "Unavailable"}</p>
           </div>
-          <div className="col-span-2 md:mt-7 md:border-t md:border-black/[0.06] md:pt-5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-              <span className="grid size-5 place-items-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>
-              {selectedKitData?.stock ? `${selectedKitData.stock} ready to order` : "Availability shown in details"}
-            </div>
+          <div className="col-span-2 border-t border-black/[0.06] pt-5 md:mt-7">
+            <p className="inline-flex items-center gap-2 text-xs font-semibold text-[#E10714]"><Clock3 size={15} /> Collection preview</p>
+            <p className="mt-2 text-xs leading-6 text-neutral-500">Online ordering is not open yet.</p>
           </div>
         </motion.div>
 
@@ -504,8 +470,8 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
               className="absolute inset-0 z-20"
             >
               <SafeJerseyImage
-                source={getJerseyKitImage(selectedJersey, activeKit)}
-                alt={`${selectedJersey.team} ${activeKit} jersey`}
+                source={activeKit ? getJerseyKitImage(selectedJersey, activeKit) : "/assets/jersey-placeholder.svg"}
+                alt={activeKit ? `${selectedJersey.team} ${activeKit} jersey` : `${selectedJersey.team} kit preview unavailable`}
                 sizes="(max-width: 768px) 90vw, 52vw"
                 priority
                 className="tisa-product-float object-contain drop-shadow-[0_32px_38px_rgba(0,0,0,0.24)]"
@@ -546,7 +512,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
             </div>
           </div>
           <h1 className="mt-5 max-w-md text-3xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-4xl md:text-3xl lg:text-[38px]">{selectedJersey.name}</h1>
-          <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, ready for your name and number.`}</p>
+          <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, collection preview.`}</p>
 
           <div className="mt-6 border-t border-black/[0.06] pt-5">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose sleeve</p>
@@ -555,7 +521,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
                 const alternative = sleeveAlternatives.find(
                   (item) => getJerseySleeve(item) === option.id,
                 );
-                const active = getJerseySleeve(selectedJersey as CatalogJersey) === option.id;
+                const active = getJerseySleeve(selectedJersey) === option.id;
                 return (
                   <button
                     key={option.id}
@@ -577,21 +543,23 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose kit</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {kitOptions.map((kit) => {
-                const available = isJerseyKitAvailable(selectedJersey, kit.id);
+                const available = isCatalogKitPreviewAvailable(selectedJersey, kit.id);
                 const active = activeKit === kit.id;
                 return (
                   <button
                     key={kit.id}
                     type="button"
                     disabled={!available}
+                    aria-label={`${kit.label.replace(" Kit", "")}${available ? "" : " — unavailable"}`}
                     aria-pressed={active}
-                    onClick={() => setSelectedKit(kit.id)}
-                    className={`group rounded-2xl border p-2 text-center transition-all duration-200 ${active ? "border-[#E10714] bg-[#E10714]/[0.04] shadow-[0_8px_24px_rgba(225,7,20,0.1)]" : available ? "border-black/[0.07] bg-white/70 hover:-translate-y-0.5 hover:border-black/15 hover:bg-white hover:shadow-md" : "cursor-not-allowed border-black/[0.04] bg-white/30 opacity-35"}`}
+                    onClick={() => available && setSelectedKit(kit.id)}
+                    className={`group rounded-2xl border p-2 text-center transition-all duration-200 ${active ? "border-[#E10714] bg-[#E10714]/[0.04] shadow-[0_8px_24px_rgba(225,7,20,0.1)]" : available ? "border-black/[0.07] bg-white/70 hover:-translate-y-0.5 hover:border-black/15 hover:bg-white hover:shadow-md" : "cursor-not-allowed border-black/[0.04] bg-white/30 text-neutral-500"}`}
                   >
                     <span className="relative mx-auto block h-14 w-full">
                       {available ? <SafeJerseyImage source={getJerseyKitImage(selectedJersey, kit.id)} alt="" sizes="84px" /> : <Shirt className="absolute inset-0 m-auto text-neutral-300" size={24} />}
                     </span>
                     <span className="mt-1 block text-[10px] font-medium">{kit.label.replace(" Kit", "")}</span>
+                    {!available && <span className="mt-1 block text-[9px]">Unavailable</span>}
                   </button>
                 );
               })}
@@ -689,7 +657,7 @@ function SafeJerseyImage({
       priority={priority}
       className={`select-none ${className}`}
       onError={(event) => {
-        event.currentTarget.src = "/assets/tisa-shirt.png";
+        event.currentTarget.src = "/assets/jersey-placeholder.svg";
       }}
     />
   );

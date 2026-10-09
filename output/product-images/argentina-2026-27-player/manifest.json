@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "08beaba8-bf1d-4bd6-b3b5-e0f42a9b5380",
+  "variantId": "3a36d8cd-c0b6-4df0-98cb-a0dbee3a7d18",
+  "files": [
+    {
+      "slug": "argentina-2026-27-player",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/argentina-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-bc3a9692-bd99-4228-a37a-19d5f74a3f5f.png",
+      "originalPath": "/Users/thutaminthway/Downloads/argentina-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/argentina-2026-27-player/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/argentina-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 762303,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1685780,
+      "webpBytes": 160694,
+      "sha256": "eadb3c7eca994ff58dd04222ce8bc2803dad5a3e2d338b162cb202029ecda205"
+    },
+    {
+      "slug": "argentina-2026-27-player",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/argentina-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-277497f7-426f-4903-8365-24caa6295fa0.png",
+      "originalPath": "/Users/thutaminthway/Downloads/argentina-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/argentina-2026-27-player/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/argentina-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 889252,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1406868,
+      "webpBytes": 128122,
+      "sha256": "d96d71d2ba7a6941623aae4a01801984366789f3a52d62d92c13ca31df3ecd54"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:26:18.397Z",
+  "catalogLinks": [
+    {
+      "id": "3a36d8cd-c0b6-4df0-98cb-a0dbee3a7d18",
+      "product_id": "08beaba8-bf1d-4bd6-b3b5-e0f42a9b5380",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/argentina-2026-27-player/home/front.webp",
+      "image_back_path": "products/argentina-2026-27-player/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.556Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

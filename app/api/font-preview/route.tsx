@@ -119,7 +119,7 @@ export async function GET(request: Request) {
               style: "normal",
             },
           ]
-        : [],
+        : undefined,
       headers: {
         "Cache-Control": "private, max-age=60",
         "X-Robots-Tag": "noindex",

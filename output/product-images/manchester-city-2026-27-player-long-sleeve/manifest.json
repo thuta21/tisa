@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "3d45e2fc-e098-46ac-819b-eacf64cfc0c3",
+  "variantId": "2f9d0052-630d-4577-bea2-82fd7fcf4fd4",
+  "files": [
+    {
+      "slug": "manchester-city-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/manchester-city-2026-27-player-long-sleeve/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-e7cf3f7e-3808-4e70-b1d3-d4a9dc9c6c3d.png",
+      "originalPath": "/Users/thutaminthway/Downloads/manchester-city-long-sleeve-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/manchester-city-2026-27-player-long-sleeve/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/manchester-city-2026-27-player-long-sleeve/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 525094,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2285726,
+      "webpBytes": 234580,
+      "sha256": "3162600a0739a299cad6d10d9b15c0704de4701e3c5bcb25e113dbc545e1f915"
+    },
+    {
+      "slug": "manchester-city-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/manchester-city-2026-27-player-long-sleeve/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-a5bc36dc-f745-4af3-a07f-9802b2448b0e.png",
+      "originalPath": "/Users/thutaminthway/Downloads/manchester-city-long-sleeve-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/manchester-city-2026-27-player-long-sleeve/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/manchester-city-2026-27-player-long-sleeve/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 563581,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2236338,
+      "webpBytes": 234820,
+      "sha256": "df75cfb9398ec32fc34d07654a0d29880568becdc96364065f245837f5743d0a"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:34:04.173Z",
+  "catalogLinks": [
+    {
+      "id": "2f9d0052-630d-4577-bea2-82fd7fcf4fd4",
+      "product_id": "3d45e2fc-e098-46ac-819b-eacf64cfc0c3",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/manchester-city-2026-27-player-long-sleeve/home/front.webp",
+      "image_back_path": "products/manchester-city-2026-27-player-long-sleeve/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.565Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

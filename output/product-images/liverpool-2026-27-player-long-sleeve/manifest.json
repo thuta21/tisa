@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "3b3e73c0-4f90-4a57-ba01-144e6afcfa6f",
+  "variantId": "ed5e4b67-b433-406f-a005-5b8b1b01bdd1",
+  "files": [
+    {
+      "slug": "liverpool-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/liverpool-2026-27-player-long-sleeve/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-d70aea78-9b2e-47cf-8b37-594323374607.png",
+      "originalPath": "/Users/thutaminthway/Downloads/liverpool-long-sleeve-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/liverpool-2026-27-player-long-sleeve/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/liverpool-2026-27-player-long-sleeve/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 499093,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2445375,
+      "webpBytes": 301150,
+      "sha256": "293f5585fda94e7979d5429d85b221006d031c1f72e8554d7088b2155d21a327"
+    },
+    {
+      "slug": "liverpool-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/liverpool-2026-27-player-long-sleeve/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-fabe83de-f300-426e-a242-1842accb2871.png",
+      "originalPath": "/Users/thutaminthway/Downloads/liverpool-long-sleeve-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/liverpool-2026-27-player-long-sleeve/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/liverpool-2026-27-player-long-sleeve/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 589879,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2079165,
+      "webpBytes": 230638,
+      "sha256": "e7f2c790ed361503616756cf8e816f52c3d896ef4ea1669e0ecc63f1b3adf91d"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:35:11.684Z",
+  "catalogLinks": [
+    {
+      "id": "ed5e4b67-b433-406f-a005-5b8b1b01bdd1",
+      "product_id": "3b3e73c0-4f90-4a57-ba01-144e6afcfa6f",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/liverpool-2026-27-player-long-sleeve/home/front.webp",
+      "image_back_path": "products/liverpool-2026-27-player-long-sleeve/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.567Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

@@ -47,7 +47,7 @@ import { type DbFont } from "@/lib/jerseys";
 import TeamLogo from "@/components/jersey/TeamLogo";
 import { teamLogoBucket } from "@/lib/team-logos";
 import LeagueLogo from "@/components/jersey/LeagueLogo";
-import { leagueLogoBucket } from "@/lib/league-logos";
+import { getDefaultLeagueLogo, leagueLogoBucket } from "@/lib/league-logos";
 
 
 const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
@@ -1873,8 +1873,8 @@ export default function AdminDashboard() {
               <Link href="/" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
                 Storefront <ArrowUpRight size={13} />
               </Link>
-              <Link href="/pricelists" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
-                Pricelists <ArrowUpRight size={13} />
+              <Link href="/shop" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
+                Collection preview <ArrowUpRight size={13} />
               </Link>
             </div>
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Admin panel</p>
@@ -3804,7 +3804,8 @@ function SettingsCrudPanel({
           const isRowTeam = "country" in row;
           const isRowLeague = section === "leagues";
           const label = isRowSize ? row.label : row.name;
-          const rowLogoPath = "logo_path" in row ? row.logo_path : null;
+          const rowLogoPath = ("logo_path" in row ? row.logo_path : null)
+            ?? (isRowLeague && !isRowSize ? getDefaultLeagueLogo(row.slug) ?? getDefaultLeagueLogo(row.name) : null);
           const detail = isRowTeam
             ? [row.leagues?.name, row.country].filter(Boolean).join(" · ") || "No league"
             : !isRowSize

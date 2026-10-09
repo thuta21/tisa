@@ -1,0 +1,89 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "8653aa96-806f-44e8-952d-4ae1ae488745",
+  "variantId": "0c69ef15-2e2f-4868-8a95-2e8c21054a42",
+  "files": [
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player-long-sleeve/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-e6e2cb88-b16d-404d-96dc-b635dcddca4f.png",
+      "originalPath": "/Users/thutaminthway/Downloads/bacelona-home-long-sleeve-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player-long-sleeve/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player-long-sleeve/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 527301,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2270872,
+      "webpBytes": 259384,
+      "sha256": "82fd5ff4b50ccf91a9016fce29003e790f76a346a5acc43bcdefb7e68964fc82"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player-long-sleeve/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-7d778eec-b536-4462-a9be-1208ada56f18.png",
+      "originalPath": "/Users/thutaminthway/Downloads/bacelona-home-long-sleeve-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player-long-sleeve/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player-long-sleeve/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 488610,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2270544,
+      "webpBytes": 235408,
+      "sha256": "138dca9feecfba810098ddb4c9c9817fde20fe5dfd26e68d813028d7adf98ed2"
+    }
+  ],
+  "verifiedAt": "2026-10-09T13:18:17.523Z",
+  "catalogLinks": {
+    "id": "0c69ef15-2e2f-4868-8a95-2e8c21054a42",
+    "kit": "home",
+    "available": true,
+    "image_back_path": "products/barcelona-2026-27-player-long-sleeve/home/back.webp",
+    "image_front_path": "products/barcelona-2026-27-player-long-sleeve/home/front.webp"
+  },
+  "catalogVerifiedAt": "2026-10-09T13:22:38.442Z",
+  "websiteVerifiedAt": "2026-10-09T13:28:11.949Z",
+  "browserChecks": [
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "homepage",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Ffront.webp&w=1080&q=75"
+    },
+    {
+      "slug": "barcelona-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "view": "detail",
+      "loaded": true,
+      "src": "http://localhost:3000/_next/image?url=https%3A%2F%2Fmsigjxklhreavourvigt.supabase.co%2Fstorage%2Fv1%2Fobject%2Fpublic%2Fproduct-images%2Fproducts%2Fbarcelona-2026-27-player-long-sleeve%2Fhome%2Fback.webp&w=1080&q=75"
+    }
+  ]
+}

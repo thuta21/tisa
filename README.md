@@ -12,6 +12,21 @@ The current domain boundaries, transaction rules and clean-rebuild sequence are 
 
 ## Local setup
 
+The public website currently runs as a collection preview. Cart, checkout,
+customer registration, accounts, fonts and public pricelists show an ordering
+unavailable notice. Prices, purchase controls and delivery/payment promises are
+removed from the public collection. Admin catalog and inventory tools remain
+available at `/admin/login`.
+
+Apply `supabase/migrations/20261008120000_pause_public_checkout.sql` to the
+connected hosted project before deploying this preview. It revokes customer
+access to `create_checkout_order`, including direct Supabase calls from old
+clients, without changing existing records or admin order-management access.
+The application publishable key cannot apply this migration; use a trusted
+Supabase SQL Editor or authenticated database migration workflow. Reopening
+orders requires an explicit database grant and restoring the storefront UI
+after licensing and operational review.
+
 ```bash
 pnpm install
 cp .env.example .env.local

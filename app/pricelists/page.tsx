@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import Pricelists from "@/app/pages/Pricelists";
+import type { Metadata } from "next";
+import LaunchNotice from "@/components/LaunchNotice";
 
-export default function Page() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
-      <Pricelists />
-    </Suspense>
-  );
-}
+export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
+export default LaunchNotice;

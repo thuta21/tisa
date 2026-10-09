@@ -1,16 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
-import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { getSafeAdminRedirectPath } from "@/lib/auth/redirect";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const requestedNext = requestUrl.searchParams.get("next");
-  const nextPath = getSafeRedirectPath(requestedNext);
+  const nextPath = requestedNext === "/reset-password" ? "/reset-password" : getSafeAdminRedirectPath(requestedNext);
   const response = NextResponse.redirect(new URL(nextPath, requestUrl.origin));
 
-  if (!code) return NextResponse.redirect(new URL("/login?error=missing_callback_code", requestUrl.origin));
+  if (!code) return NextResponse.redirect(new URL("/admin/login?error=missing_callback_code", requestUrl.origin));
 
   const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
@@ -22,6 +22,6 @@ export async function GET(request: NextRequest) {
   });
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return NextResponse.redirect(new URL("/login?error=callback_failed", requestUrl.origin));
+  if (error) return NextResponse.redirect(new URL("/admin/login?error=callback_failed", requestUrl.origin));
   return response;
 }

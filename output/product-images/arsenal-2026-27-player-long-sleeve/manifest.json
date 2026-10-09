@@ -1,0 +1,67 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "productId": "e4526d38-f28b-44a4-b051-1d443d75020a",
+  "variantId": "ef0c9886-3d20-4582-b6e6-0a883f0462cf",
+  "files": [
+    {
+      "slug": "arsenal-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/arsenal-2026-27-player-long-sleeve/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-b2e35e2a-9af4-40fa-af20-36646d43cbfa.png",
+      "originalPath": "/Users/thutaminthway/Downloads/arsenal-long-sleeve-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/arsenal-2026-27-player-long-sleeve/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/arsenal-2026-27-player-long-sleeve/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 502813,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2297340,
+      "webpBytes": 240096,
+      "sha256": "efa4fd4d2438f439b5474a88663fbe52f99a0493975d6c9ae46be8fdefb29230"
+    },
+    {
+      "slug": "arsenal-2026-27-player-long-sleeve",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/arsenal-2026-27-player-long-sleeve/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-b6455016-65e7-42d2-b61d-12a7bbffc0a7.png",
+      "originalPath": "/Users/thutaminthway/Downloads/arsenal-long-sleeve-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/arsenal-2026-27-player-long-sleeve/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/arsenal-2026-27-player-long-sleeve/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 594802,
+      "changedAlphaPixels": 0,
+      "pngBytes": 2074689,
+      "webpBytes": 189834,
+      "sha256": "6b95f24ebbe56e975476191714245bf98bd24c13fb08f6fed3ef0d9b1c27be44"
+    }
+  ],
+  "verifiedAt": "2026-10-09T12:30:17.126Z",
+  "catalogLinks": [
+    {
+      "id": "ef0c9886-3d20-4582-b6e6-0a883f0462cf",
+      "product_id": "e4526d38-f28b-44a4-b051-1d443d75020a",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/arsenal-2026-27-player-long-sleeve/home/front.webp",
+      "image_back_path": "products/arsenal-2026-27-player-long-sleeve/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.562Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

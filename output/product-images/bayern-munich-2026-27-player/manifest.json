@@ -1,0 +1,65 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "slug": "bayern-munich-2026-27-player",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/bayern-munich-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-7e78f89f-3b1f-493e-bc48-6ddcff90049c.png",
+      "originalPath": "/Users/thutaminthway/Downloads/bayern-home-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/bayern-munich-2026-27-player/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/bayern-munich-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 751453,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1652871,
+      "webpBytes": 173668,
+      "sha256": "eaec10ead1ee732e7082c1d56e70ba7ffea7ce81c0bc25075280bd369751fdc7"
+    },
+    {
+      "slug": "bayern-munich-2026-27-player",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/bayern-munich-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-e496dfac-40e2-4c60-a518-88b9465e0fbc.png",
+      "originalPath": "/Users/thutaminthway/Downloads/bayern-home-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/bayern-munich-2026-27-player/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/bayern-munich-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 853760,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1426150,
+      "webpBytes": 140908,
+      "sha256": "74ac6e7b7e239fdd47c50555d73b71db8e9d966334f9673addba74981b2ce032"
+    }
+  ],
+  "verifiedAt": "2026-10-09T11:59:35.813Z",
+  "catalogLinks": [
+    {
+      "id": "3c35e40e-800c-4735-b0bb-030595c5ad98",
+      "product_id": "83db44a3-422a-416a-bf59-d8f5657cfecf",
+      "kit": "home",
+      "available": true,
+      "image_front_path": "products/bayern-munich-2026-27-player/home/front.webp",
+      "image_back_path": "products/bayern-munich-2026-27-player/home/back.webp"
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-09T12:36:50.553Z",
+  "websiteVerifiedAt": "2026-10-09T12:48:02.371Z",
+  "websiteVerification": "Homepage kit selection and detail Front/Back images loaded successfully"
+}

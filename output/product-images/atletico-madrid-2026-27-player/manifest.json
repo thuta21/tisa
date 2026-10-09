@@ -1,0 +1,91 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "slug": "atletico-madrid-2026-27-player",
+      "kit": "away",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/atletico-madrid-2026-27-player/away/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-b7941903-a8a7-43ba-a5ba-1fce0012009a.png",
+      "originalPath": "/Users/thutaminthway/Downloads/atletico-madrid-away-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/atletico-madrid-2026-27-player/away/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/atletico-madrid-2026-27-player/away/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 748404,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1548587,
+      "webpBytes": 110622,
+      "sha256": "07e473571ef6478bc98a89371b774c3be76605e531d263f09a371e75c28c9a05"
+    },
+    {
+      "slug": "atletico-madrid-2026-27-player",
+      "kit": "away",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/atletico-madrid-2026-27-player/away/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-6480f7d1-0bcf-4f25-b5b9-363ef69d1fae.png",
+      "originalPath": "/Users/thutaminthway/Downloads/atletico-madrid-away-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/atletico-madrid-2026-27-player/away/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/atletico-madrid-2026-27-player/away/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 794616,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1368382,
+      "webpBytes": 85668,
+      "sha256": "ab61a195f01a04353fa71a641de93aeb8ad631a50f395aa436af7d98a6898bce"
+    }
+  ],
+  "verifiedAt": "2026-10-08T22:32:12.928Z",
+  "catalogLinks": [
+    {
+      "id": "acb45a3e-dd8d-49a5-ae11-a69c9fc2a5d1",
+      "product_id": "d94d1015-0311-4e6f-82f3-a0ab0974307c",
+      "kit": "away",
+      "image_front_path": "products/atletico-madrid-2026-27-player/away/front.webp",
+      "image_back_path": "products/atletico-madrid-2026-27-player/away/back.webp",
+      "available": true,
+      "sleeve": "short",
+      "previousImagePaths": {
+        "front": null,
+        "back": null
+      }
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-08T22:35:16.463Z",
+  "websiteVerification": {
+    "verifiedAt": "2026-10-08T22:38:19.057Z",
+    "homepageKits": [
+      "away"
+    ],
+    "detailViews": [
+      {
+        "kit": "away",
+        "side": "front",
+        "loaded": true
+      },
+      {
+        "kit": "away",
+        "side": "back",
+        "loaded": true
+      }
+    ],
+    "detailURL": "http://localhost:3000/jersey/atletico-madrid-2026-27-player",
+    "screenshots": [
+      "/Users/thutaminthway/code/tisa/output/product-images/atletico-madrid-2026-27-player/verification/atletico-madrid-away-front-detail.jpg",
+      "/Users/thutaminthway/code/tisa/output/product-images/atletico-madrid-2026-27-player/verification/atletico-madrid-away-back-detail.jpg"
+    ]
+  }
+}

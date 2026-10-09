@@ -1,0 +1,32 @@
+[
+  {
+    "id": "8653aa96-806f-44e8-952d-4ae1ae488745",
+    "slug": "barcelona-2026-27-player-long-sleeve",
+    "name": "Barcelona 2026/27 Player Version Long Sleeve",
+    "sleeve": "long",
+    "product_variants": [
+      {
+        "id": "0c69ef15-2e2f-4868-8a95-2e8c21054a42",
+        "kit": "home",
+        "available": true,
+        "image_back_path": "products/barcelona-2026-27-player-long-sleeve/home/back.webp",
+        "image_front_path": "products/barcelona-2026-27-player-long-sleeve/home/front.webp"
+      }
+    ]
+  },
+  {
+    "id": "5ee231d9-29f5-4f7a-baf3-ad5bc1841ed7",
+    "slug": "real-madrid-2026-27-player-long-sleeve",
+    "name": "Real Madrid 2026/27 Player Version Long Sleeve",
+    "sleeve": "long",
+    "product_variants": [
+      {
+        "id": "7a93aff5-7854-4df0-bdb6-37a4c75046a1",
+        "kit": "home",
+        "available": true,
+        "image_back_path": "products/real-madrid-2026-27-player-long-sleeve/home/back.webp",
+        "image_front_path": "products/real-madrid-2026-27-player-long-sleeve/home/front.webp"
+      }
+    ]
+  }
+]

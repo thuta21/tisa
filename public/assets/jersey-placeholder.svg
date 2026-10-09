@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="700" viewBox="0 0 600 700" fill="none">
+  <defs><linearGradient id="shirt" x1="300" y1="100" x2="300" y2="540" gradientUnits="userSpaceOnUse"><stop stop-color="#FAFAF9"/><stop offset="1" stop-color="#E5E5E1"/></linearGradient></defs>
+  <path d="M212 128 260 106C272 123 285 131 300 131S328 123 340 106L388 128 493 245 426 308 390 272V539H210V272L174 308 107 245Z" fill="url(#shirt)" stroke="#CBCBC5" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M260 106C272 123 285 131 300 131S328 123 340 106" stroke="#E10714" stroke-width="7"/>
+  <path d="m119 258 44 40M437 298l44-40" stroke="#E10714" stroke-width="6"/>
+  <text x="300" y="323" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="600" letter-spacing="7" fill="#9B9B94">TISA</text>
+  <text x="300" y="610" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" letter-spacing="3" fill="#777770">IMAGE COMING SOON</text>
+</svg>

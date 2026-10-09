@@ -1,0 +1,153 @@
+{
+  "generator": "built-in image_gen",
+  "mode": "edit, transparent_background=true",
+  "encoding": {
+    "format": "webp",
+    "quality": 85,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "uploadStatus": "uploaded and verified",
+  "files": [
+    {
+      "slug": "barcelona-2026-27-player",
+      "kit": "home",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/home/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-d9cb011e-7b79-43bc-bea3-9b283acd2165.png",
+      "originalPath": "/Users/thutaminthway/Downloads/barcelona-home-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player/home/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 734968,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1803872,
+      "webpBytes": 185570,
+      "sha256": "7c99e573908d5046e513933d5681131611f55e7ca745d1a9e90b51c51a32a6e2"
+    },
+    {
+      "slug": "barcelona-2026-27-player",
+      "kit": "home",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/home/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-23773eb5-8516-4452-bfbc-ada49fd49009.png",
+      "originalPath": "/Users/thutaminthway/Downloads/barcelona-home-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player/home/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 783683,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1726177,
+      "webpBytes": 186682,
+      "sha256": "77be010efb8cdf7bdf546e229ec7ea3d7e068e3d7d41d1869fe7fc9c498ec436"
+    },
+    {
+      "slug": "barcelona-2026-27-player",
+      "kit": "away",
+      "side": "front",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/away/front.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-a3d259f0-48df-4baa-9880-1fa08a70cc25.png",
+      "originalPath": "/Users/thutaminthway/Downloads/barcelona-away-front.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player/away/front.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player/away/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 762952,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1786697,
+      "webpBytes": 176634,
+      "sha256": "34e4d3793f174cb81cb70af901883bb9b031ba6c7ae8f12856673ca6a9f50acc"
+    },
+    {
+      "slug": "barcelona-2026-27-player",
+      "kit": "away",
+      "side": "back",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/away/back.webp",
+      "sourcePng": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-5438852a-a93f-464d-8a76-9ee6678fd402.png",
+      "originalPath": "/Users/thutaminthway/Downloads/barcelona-away-back.jpg",
+      "bucket": "product-images",
+      "storagePath": "products/barcelona-2026-27-player/away/back.webp",
+      "publicURL": "https://msigjxklhreavourvigt.supabase.co/storage/v1/object/public/product-images/products/barcelona-2026-27-player/away/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "fullyTransparentPixels": 772850,
+      "changedAlphaPixels": 0,
+      "pngBytes": 1889494,
+      "webpBytes": 195710,
+      "sha256": "bb816d8d29b7f5a25d40156cac847cc25936f245c1c33476f26561dc023060ef"
+    }
+  ],
+  "verifiedAt": "2026-10-08T22:32:10.129Z",
+  "catalogLinks": [
+    {
+      "id": "4d3fad30-1dd8-4641-8851-477a51bd41ae",
+      "product_id": "c9bbc326-2394-4f3e-8b2f-69710fe902d8",
+      "kit": "away",
+      "image_front_path": "products/barcelona-2026-27-player/away/front.webp",
+      "image_back_path": "products/barcelona-2026-27-player/away/back.webp",
+      "available": true,
+      "sleeve": "short",
+      "previousImagePaths": {
+        "front": null,
+        "back": null
+      }
+    },
+    {
+      "id": "7d61a2cf-33d5-4a6a-88e7-ed9f38530f62",
+      "product_id": "c9bbc326-2394-4f3e-8b2f-69710fe902d8",
+      "kit": "home",
+      "image_front_path": "products/barcelona-2026-27-player/home/front.webp",
+      "image_back_path": "products/barcelona-2026-27-player/home/back.webp",
+      "available": true,
+      "sleeve": "short",
+      "previousImagePaths": {
+        "front": null,
+        "back": null
+      }
+    }
+  ],
+  "catalogVerifiedAt": "2026-10-08T22:35:16.454Z",
+  "websiteVerification": {
+    "verifiedAt": "2026-10-08T22:38:19.042Z",
+    "homepageKits": [
+      "home",
+      "away"
+    ],
+    "detailViews": [
+      {
+        "kit": "home",
+        "side": "front",
+        "loaded": true
+      },
+      {
+        "kit": "home",
+        "side": "back",
+        "loaded": true
+      },
+      {
+        "kit": "away",
+        "side": "front",
+        "loaded": true
+      },
+      {
+        "kit": "away",
+        "side": "back",
+        "loaded": true
+      }
+    ],
+    "detailURL": "http://localhost:3000/jersey/barcelona-2026-27-player",
+    "screenshots": [
+      "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/verification/barcelona-home-back-connected.jpg",
+      "/Users/thutaminthway/code/tisa/output/product-images/barcelona-2026-27-player/verification/barcelona-away-back-connected.jpg"
+    ]
+  }
+}

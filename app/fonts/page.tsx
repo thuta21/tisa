@@ -1,5 +1,5 @@
-import FontShop from "@/app/pages/FontShop";
+import type { Metadata } from "next";
+import LaunchNotice from "@/components/LaunchNotice";
 
-export default function Page() {
-  return <FontShop />;
-}
+export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
+export default LaunchNotice;

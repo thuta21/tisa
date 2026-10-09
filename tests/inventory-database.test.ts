@@ -29,6 +29,18 @@ beforeAll(async()=>{
 },30000);
 afterAll(async()=>{await db?.close();});
 describe('real PostgreSQL inventory transactions',()=>{
+  it('blocks public checkout RPCs during the preview without creating orders',async()=>{
+    const before=await value('select count(*)::int as v from orders');
+    for(const role of ['anon','authenticated']) {
+      try {
+        await db.exec(`set role ${role}`);
+        await expect(db.query("select public.create_checkout_order($1::uuid,'Preview','0',null,'UAE','Dubai','Test','cod',null,'[]'::jsonb)",[crypto.randomUUID()])).rejects.toThrow('permission denied');
+      } finally {
+        await db.exec('reset role');
+      }
+    }
+    expect(await value('select count(*)::int as v from orders')).toBe(before);
+  });
   it('applies once and rejects stale edits',async()=>{
     const key=crypto.randomUUID();expect(await adjustment(9,1,key)).toMatchObject({quantity:9,version:2});
     expect(await adjustment(9,1,key)).toMatchObject({quantity:9,version:2});

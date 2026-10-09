@@ -57,6 +57,7 @@ export type CatalogProduct = {
 };
 
 export type CatalogJerseyKit = JerseyKit & {
+  previewAvailable: boolean;
   variantId?: string;
   variantName?: string;
   sku?: string | null;
@@ -94,7 +95,7 @@ export const catalogProductSelect =
   "*, leagues(id, name), teams(*), seasons(id, name), product_variants(*, inventory(*))";
 
 export function getPublicProductImage(path?: string | null) {
-  if (!path) return "/assets/tisa-shirt.png";
+  if (!path) return "/assets/jersey-placeholder.svg";
   if (path.startsWith("/") || path.startsWith("http")) return path;
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   return `${supabaseUrl}/storage/v1/object/public/product-images/${encodedPath}`;
@@ -124,6 +125,7 @@ export function getVariantAvailableSizes(variant?: Pick<CatalogVariant, "availab
 export function getProductActiveSizes(product: CatalogProduct) {
   const sizes = new Set<string>();
   for (const variant of product.product_variants ?? []) {
+    if (!variant.available) continue;
     for (const row of variant.inventory ?? []) {
       if (isInventoryActive(row)) sizes.add(row.size);
     }
@@ -136,25 +138,39 @@ export function getFirstAvailableVariant(product: CatalogProduct) {
     .map((kit) => product.product_variants?.find((variant) => variant.kit === kit.id))
     .find((variant) => variant && getVariantAvailableStock(variant) > 0)
     ?? product.product_variants?.find((variant) => variant.available)
-    ?? product.product_variants?.[0]
     ?? null;
+}
+
+// Preview visibility follows the admin switch. Purchase availability also requires stock.
+export function isCatalogKitPreviewAvailable(jersey: Pick<CatalogJersey, "kits">, kit: KitVariant) {
+  const variant = jersey.kits[kit];
+  return Boolean(variant?.variantId && variant.previewAvailable);
+}
+
+export function getCatalogPreviewKit(
+  jersey: Pick<CatalogJersey, "kits">,
+  preferredKit?: KitVariant | null,
+): KitVariant | null {
+  if (preferredKit && isCatalogKitPreviewAvailable(jersey, preferredKit)) return preferredKit;
+  return kitOptions.find((kit) => isCatalogKitPreviewAvailable(jersey, kit.id))?.id ?? null;
 }
 
 export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
   const variants = product.product_variants ?? [];
-  const firstVariant = getFirstAvailableVariant(product) ?? variants[0];
+  const firstVariant = getFirstAvailableVariant(product);
   const fallbackImage = getPublicProductImage(firstVariant?.image_front_path);
-  const fallbackBackImage = getPublicProductImage(firstVariant?.image_back_path ?? firstVariant?.image_front_path);
+  const fallbackBackImage = firstVariant?.image_back_path ? getPublicProductImage(firstVariant.image_back_path) : undefined;
   const activeSizes = getProductActiveSizes(product);
   const colors = product.country_colors.length ? product.country_colors : ["#111111", "#ffffff", "#737373"];
 
   const kits = Object.fromEntries(kitOptions.map((kit) => {
     const variant = variants.find((item) => item.kit === kit.id);
     const stock = getVariantAvailableStock(variant);
-    const stockBySize = Object.fromEntries((variant?.inventory ?? []).map((row) => [row.size, getAvailableStock(row)]));
+    const stockBySize = Object.fromEntries((variant?.inventory ?? []).map((row) => [row.size, variant?.available ? getAvailableStock(row) : 0]));
     const kitValue: CatalogJerseyKit = {
-      image: getPublicProductImage(variant?.image_front_path ?? firstVariant?.image_front_path),
-      imageBack: getPublicProductImage(variant?.image_back_path ?? variant?.image_front_path ?? firstVariant?.image_back_path ?? firstVariant?.image_front_path),
+      image: getPublicProductImage(variant?.image_front_path),
+      imageBack: variant?.image_back_path ? getPublicProductImage(variant.image_back_path) : undefined,
+      previewAvailable: Boolean(variant?.available),
       available: Boolean(variant?.available && stock > 0),
       price: variant?.price ?? product.base_price,
       variantId: variant?.id,

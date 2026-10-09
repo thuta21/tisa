@@ -4,26 +4,28 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BadgeCheck, ClipboardCheck, Ruler } from "lucide-react";
+import { ArrowRight, BadgeCheck, Eye, Ruler } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import FeaturedJerseyShowcase from "@/components/jersey/FeaturedJerseyShowcase";
-import type { Jersey } from "@/lib/jerseys";
 import {
   loadCatalogJerseys,
   loadCatalogLeagues,
   loadCatalogTeams,
   type CatalogLeague,
+  type CatalogJersey,
   type CatalogTeam,
 } from "@/lib/products";
 
 export default function Home() {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
-  const [jerseys, setJerseys] = useState<Jersey[]>([]);
+  const [jerseys, setJerseys] = useState<CatalogJersey[]>([]);
   const [catalogTeams, setCatalogTeams] = useState<CatalogTeam[]>([]);
   const [catalogLeagues, setCatalogLeagues] = useState<CatalogLeague[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -37,7 +39,7 @@ export default function Home() {
         setJerseys(items);
       })
       .catch(() => {
-        if (mounted) setJerseys([]);
+        if (mounted) setError(true);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -46,41 +48,34 @@ export default function Home() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [attempt]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+    return <div className="tisa-page-surface flex min-h-screen flex-col"><Navbar /><main id="main-content" tabIndex={-1} role="status" className="grid flex-1 place-items-center pt-24"><div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary motion-reduce:animate-none" /><span className="sr-only">Loading the collection</span></main><Footer /></div>;
   }
 
   return (
     <div className="tisa-page-surface min-h-screen text-foreground flex flex-col">
       <Navbar />
 
-      <div className="tisa-page-surface">
-        <main>
-        {jerseys.length > 0 ? (
+      <main id="main-content" tabIndex={-1} className="tisa-page-surface">
+        {error ? (
+          <section role="alert" className="mx-auto max-w-2xl px-5 pb-16 pt-36 text-center"><h1 className="text-3xl font-semibold">The collection could not be loaded.</h1><p className="mt-4 text-muted-foreground">Please try again in a moment.</p><button type="button" onClick={() => { setError(false); setLoading(true); setAttempt((value) => value + 1); }} className="mt-6 min-h-12 rounded-full bg-primary px-6 text-sm font-semibold text-white">Try again</button></section>
+        ) : jerseys.length > 0 ? (
           <FeaturedJerseyShowcase
             jerseys={jerseys}
             catalogTeams={catalogTeams}
             catalogLeagues={catalogLeagues}
             onSelect={(jersey) => {
-              if ("slug" in jersey && typeof jersey.slug === "string") {
-                router.push(`/jersey/${jersey.slug}`);
-                return;
-              }
-              router.push("/shop");
+              router.push(`/jersey/${jersey.slug}`);
             }}
           />
         ) : (
-          <div className="text-center py-24">
-            <p className="text-muted-foreground font-mono text-sm">No jerseys available yet.</p>
+          <div className="text-center pb-20 pt-36">
+            <h1 className="text-3xl font-semibold">The collection is being prepared.</h1>
+            <p className="mt-4 text-muted-foreground">Check back for a first look at TISA.</p>
           </div>
         )}
-        </main>
 
         <div
           className="relative isolate overflow-hidden rounded-t-[20px] bg-[#101010] text-white sm:rounded-t-[28px]"
@@ -121,7 +116,7 @@ export default function Home() {
               Find the kit that
               <span className="block text-white/35">feels like yours.</span>
             </h2>
-            <p className="mt-5 max-w-xl text-base font-normal leading-7 text-white/62">Compare every available team, kit version and size in one calm, considered collection.</p>
+            <p className="mt-5 max-w-xl text-base font-normal leading-7 text-white/62">Explore the teams, kit designs and sleeve styles in our collection preview.</p>
           </motion.div>
 
           <motion.div
@@ -131,9 +126,9 @@ export default function Home() {
             transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
             className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"
           >
-            <Link href="/shop?sort=newest" className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-6 text-sm font-semibold text-white shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10 hover:shadow-md">View new arrivals</Link>
+            <Link href="/customer-care#size-guide" className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] px-6 text-sm font-semibold text-white shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10 hover:shadow-md">Read the fit guide</Link>
             <Link href="/shop" className="group inline-flex h-12 items-center justify-center gap-3 rounded-full bg-[#E10714] px-6 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(225,7,20,0.24)] transition-all hover:-translate-y-0.5 hover:bg-[#c90612] hover:shadow-[0_16px_34px_rgba(225,7,20,0.3)]">
-              Shop all jerseys
+              Explore the collection
               <span className="grid size-7 place-items-center rounded-full bg-white/15 transition-transform group-hover:translate-x-0.5"><ArrowRight size={15} /></span>
             </Link>
           </motion.div>
@@ -156,9 +151,9 @@ export default function Home() {
         </motion.div>
         <div className="mx-auto grid max-w-7xl gap-3 px-5 sm:px-6 md:grid-cols-3">
           {[
-            { icon: BadgeCheck, title: "Choose your kit", text: "See which Home, Away and Third versions are currently available." },
-            { icon: Ruler, title: "Confirm your fit", text: "Measure a shirt you own and check the available sizes before ordering." },
-            { icon: ClipboardCheck, title: "Review your order", text: "Delivery and payment details are confirmed during order review." },
+            { icon: BadgeCheck, title: "Choose your kit", text: "Explore Home, Away and Third kit designs." },
+            { icon: Ruler, title: "Confirm your fit", text: "Compare a shirt you own with our measurement guide." },
+            { icon: Eye, title: "A first look", text: "Browse the collection while we prepare for launch. Ordering is not open yet." },
           ].map((item, index) => (
             <motion.div
               key={item.title}
@@ -182,7 +177,7 @@ export default function Home() {
         </div>
         </motion.section>
         </div>
-      </div>
+      </main>
 
       <Footer />
     </div>
