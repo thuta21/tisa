@@ -1,5 +1,6 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { supabaseUrl } from "@/lib/supabase/config";
+import { getDefaultTeamLogo } from "@/lib/team-logos";
 import {
   kitOptions,
   type Jersey,
@@ -190,7 +191,7 @@ export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
     product,
     name: product.name,
     team: product.teams?.name ?? product.team,
-    teamLogoPath: product.teams?.logo_path ?? null,
+    teamLogoPath: product.teams?.logo_path ?? getDefaultTeamLogo(product.teams?.slug ?? product.team),
     category: product.leagues?.name ?? product.category,
     league: product.leagues?.name ?? product.category,
     collection: product.collection ?? product.seasons?.name ?? product.season ?? "",
@@ -239,7 +240,10 @@ export async function loadCatalogTeams() {
     .order("name", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as CatalogTeam[];
+  return ((data ?? []) as CatalogTeam[]).map((team) => ({
+    ...team,
+    logo_path: team.logo_path ?? getDefaultTeamLogo(team.slug),
+  }));
 }
 
 export async function loadCatalogLeagues() {

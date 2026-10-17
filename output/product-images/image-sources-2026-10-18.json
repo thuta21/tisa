@@ -1,0 +1,38 @@
+[
+  {
+    "team": "intermiami",
+    "side": "front",
+    "path": "/Users/thutaminthway/Downloads/intermiami-home-front.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-2585ffc0-2f8b-4313-9e30-496bf4d63f5d.png"
+  },
+  {
+    "team": "intermiami",
+    "side": "back",
+    "path": "/Users/thutaminthway/Downloads/intermiami-home-back.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-3042666d-e373-4866-9f20-f27439ecfecb.png"
+  },
+  {
+    "team": "germany",
+    "side": "front",
+    "path": "/Users/thutaminthway/Downloads/germany-home-front.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-8ffbe819-7fab-4b53-88d3-aa257a616430.png"
+  },
+  {
+    "team": "germany",
+    "side": "back",
+    "path": "/Users/thutaminthway/Downloads/germany-home-back.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-37b6d918-2492-477f-9dcd-cf3c3b7d66d2.png"
+  },
+  {
+    "team": "portugal",
+    "side": "front",
+    "path": "/Users/thutaminthway/Downloads/portugal-home-front.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-7d1ddbd6-c4c0-4c96-9e0d-8d803af89069.png"
+  },
+  {
+    "team": "portugal",
+    "side": "back",
+    "path": "/Users/thutaminthway/Downloads/portugal-home-back.jpg",
+    "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-8ccd0874-5ad2-45c9-bd38-e85d77aac84b.png"
+  }
+]

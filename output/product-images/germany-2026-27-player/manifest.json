@@ -1,0 +1,43 @@
+{
+  "bundledImages20261018": [
+    {
+      "team": "germany",
+      "side": "front",
+      "path": "/Users/thutaminthway/Downloads/germany-home-front.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-8ffbe819-7fab-4b53-88d3-aa257a616430.png",
+      "slug": "germany-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/germany-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "c390bcb2fb0a35c5f64067099fbc61ebb4381361e242e9cdeb89b6306eca6e9b",
+      "webpBytes": 135644,
+      "publicPath": "/products/germany-2026-27-player/home/front.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/germany-2026-27-player/home/front.webp"
+    },
+    {
+      "team": "germany",
+      "side": "back",
+      "path": "/Users/thutaminthway/Downloads/germany-home-back.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-37b6d918-2492-477f-9dcd-cf3c3b7d66d2.png",
+      "slug": "germany-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/germany-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "5962f621506eb6aa34ed8ca17b2b53dbb661e92f23d0c7c86059a8a5c0125588",
+      "webpBytes": 124606,
+      "publicPath": "/products/germany-2026-27-player/home/back.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/germany-2026-27-player/home/back.webp"
+    }
+  ],
+  "hostingNote": "Listed bundled images use /products/... in the database; existing Storage images outside this batch are unchanged."
+}

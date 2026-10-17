@@ -1,0 +1,43 @@
+{
+  "bundledImages20261018": [
+    {
+      "team": "intermiami",
+      "side": "front",
+      "path": "/Users/thutaminthway/Downloads/intermiami-home-front.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-2585ffc0-2f8b-4313-9e30-496bf4d63f5d.png",
+      "slug": "inter-miami-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/inter-miami-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "c7d53c47dfcccdd67c20c7d4020dec2cf9dbf10e88d57eb3e038aaadbbe46955",
+      "webpBytes": 180554,
+      "publicPath": "/products/inter-miami-2026-27-player/home/front.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/inter-miami-2026-27-player/home/front.webp"
+    },
+    {
+      "team": "intermiami",
+      "side": "back",
+      "path": "/Users/thutaminthway/Downloads/intermiami-home-back.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-3042666d-e373-4866-9f20-f27439ecfecb.png",
+      "slug": "inter-miami-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/inter-miami-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "399f8354a90bf90139ec69941e8af1b5493d09cac9d9f9f26af6b00a8f3449ad",
+      "webpBytes": 173294,
+      "publicPath": "/products/inter-miami-2026-27-player/home/back.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/inter-miami-2026-27-player/home/back.webp"
+    }
+  ],
+  "hostingNote": "Listed bundled images use /products/... in the database; existing Storage images outside this batch are unchanged."
+}

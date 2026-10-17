@@ -1,0 +1,43 @@
+{
+  "bundledImages20261018": [
+    {
+      "team": "portugal",
+      "side": "front",
+      "path": "/Users/thutaminthway/Downloads/portugal-home-front.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-7d1ddbd6-c4c0-4c96-9e0d-8d803af89069.png",
+      "slug": "portugal-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/portugal-2026-27-player/home/front.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "eaaf7fd75191ce2c11043ea6584090ed2bee62d048d91cb1934c972e03336144",
+      "webpBytes": 164282,
+      "publicPath": "/products/portugal-2026-27-player/home/front.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/portugal-2026-27-player/home/front.webp"
+    },
+    {
+      "team": "portugal",
+      "side": "back",
+      "path": "/Users/thutaminthway/Downloads/portugal-home-back.jpg",
+      "png": "/Users/thutaminthway/.codex/generated_images/01a11ce9-75b4-7490-a570-127385b233fe/exec-8ccd0874-5ad2-45c9-bd38-e85d77aac84b.png",
+      "slug": "portugal-2026-27-player",
+      "kit": "home",
+      "localPath": "/Users/thutaminthway/code/tisa/output/product-images/portugal-2026-27-player/home/back.webp",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true,
+      "changedAlphaPixels": 0,
+      "sha256": "c2bc7be62d730986db7469157f3fff17b4e5c02ef6b82993c89eb45a25b9cfa6",
+      "webpBytes": 128774,
+      "publicPath": "/products/portugal-2026-27-player/home/back.webp",
+      "hosting": "bundled-public-assets",
+      "bindingStatus": "verified",
+      "bundledPath": "/Users/thutaminthway/code/tisa/public/products/portugal-2026-27-player/home/back.webp"
+    }
+  ],
+  "hostingNote": "Listed bundled images use /products/... in the database; existing Storage images outside this batch are unchanged."
+}

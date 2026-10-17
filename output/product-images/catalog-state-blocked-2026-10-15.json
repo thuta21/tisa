@@ -1,0 +1,162 @@
+{
+  "checkedAt": "2026-10-15T18:41:41.142Z",
+  "status": "Upload and database changes have not been applied; native browser controls/file picker blocked, in-app browser still signed out",
+  "data": [
+    {
+      "id": "6dcff4a4-8e93-46cd-88e4-2a4e8dfd7a20",
+      "slug": "spain-2026-27-player",
+      "product_variants": [
+        {
+          "id": "bb4b9d19-0d4b-476a-a2ed-e18e4990cecc",
+          "kit": "home",
+          "inventory": [
+            {
+              "id": "8301a707-732b-4114-a53c-430ef6c3a12d",
+              "size": "S",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "58b01121-1a4a-48a7-93bb-26d330dab7c6",
+              "size": "M",
+              "version": 1,
+              "quantity": 1,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "bec6eed4-da3a-4652-b481-443e102019c4",
+              "size": "L",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "d2da8161-bfb8-4db3-b0df-15a19f7dc60d",
+              "size": "XL",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "ab887758-f117-473d-a508-abb269b32840",
+              "size": "2XL",
+              "version": 1,
+              "quantity": 1,
+              "reserved": 0,
+              "is_active": true
+            }
+          ],
+          "image_back_path": null,
+          "image_front_path": null
+        },
+        {
+          "id": "f02f65a3-5c4c-4ec3-9212-c77bad7baea4",
+          "kit": "away",
+          "inventory": [
+            {
+              "id": "b7174eac-b9c6-46c5-8a9e-87cd6e7bc4ba",
+              "size": "S",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "fab99cd4-a5d7-40ed-85b0-7ad3abd08c06",
+              "size": "M",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "38b02979-7050-44d3-9861-183bd46e4ea1",
+              "size": "L",
+              "version": 4,
+              "quantity": 1,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "37657e40-1616-4c53-b51c-8bff24693069",
+              "size": "XL",
+              "version": 1,
+              "quantity": 2,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "10944194-28ff-4b54-9660-d9333ee70a9d",
+              "size": "2XL",
+              "version": 1,
+              "quantity": 1,
+              "reserved": 0,
+              "is_active": true
+            }
+          ],
+          "image_back_path": null,
+          "image_front_path": null
+        }
+      ]
+    },
+    {
+      "id": "f0e2aefd-6da8-4514-9642-d2ec536c3daf",
+      "slug": "france-2026-27-player",
+      "product_variants": [
+        {
+          "id": "16e061df-6bb5-4902-ae5f-b0d34cd222fd",
+          "kit": "home",
+          "inventory": [
+            {
+              "id": "ee8a5ada-964b-4f50-b9c8-0079f8f7a623",
+              "size": "S",
+              "version": 1,
+              "quantity": 1,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "a7156ada-71e0-48a1-8af3-9b1cb02b4ae5",
+              "size": "M",
+              "version": 1,
+              "quantity": 0,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "9cc98e55-76af-4ff7-a22a-3eec76df956e",
+              "size": "L",
+              "version": 1,
+              "quantity": 0,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "7a23354a-415f-4d17-be69-8ee9a1f4a540",
+              "size": "XL",
+              "version": 1,
+              "quantity": 0,
+              "reserved": 0,
+              "is_active": true
+            },
+            {
+              "id": "d4327a46-9399-43af-806d-fd9a1e59407c",
+              "size": "2XL",
+              "version": 1,
+              "quantity": 0,
+              "reserved": 0,
+              "is_active": true
+            }
+          ],
+          "image_back_path": "products/france-2026-27-player/home/back.webp",
+          "image_front_path": "products/france-2026-27-player/home/front.webp"
+        }
+      ]
+    }
+  ]
+}

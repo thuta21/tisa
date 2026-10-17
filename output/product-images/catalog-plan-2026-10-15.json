@@ -1,0 +1,33 @@
+{
+  "ids": {
+    "product": "cc39e306-0371-4461-8201-3997793b7cb3",
+    "home": "1b2d876b-63fe-4ece-9d99-62d9a5f6aa9c",
+    "away": "7b1339f4-f30a-4b46-b4db-282a3536d1b0",
+    "franceAway": "15c7286b-443f-43c7-9d99-c3a30054b545"
+  },
+  "brazilSizes": [
+    "S",
+    "M",
+    "L",
+    "XL",
+    "2XL"
+  ],
+  "brazilDeltaPerSize": 1,
+  "brazilVariants": [
+    "home",
+    "away"
+  ],
+  "preserveSpainAndFranceStock": true,
+  "files": [
+    "products/brazil-2026-27-player/away/back.webp",
+    "products/brazil-2026-27-player/away/front.webp",
+    "products/brazil-2026-27-player/home/back.webp",
+    "products/brazil-2026-27-player/home/front.webp",
+    "products/spain-2026-27-player/away/back.webp",
+    "products/spain-2026-27-player/away/front.webp",
+    "products/spain-2026-27-player/home/back.webp",
+    "products/spain-2026-27-player/home/front.webp",
+    "products/france-2026-27-player/away/back.webp",
+    "products/france-2026-27-player/away/front.webp"
+  ]
+}
