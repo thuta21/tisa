@@ -191,3 +191,15 @@
     padding: 18mm;
   }
 }
+
+/* Keep storefront controls comfortable for touch and keyboard use. */
+@layer base {
+  .tisa-page-surface :where(button, a, summary),
+  .tisa-showcase-surface :where(button, a, summary) {
+    touch-action: manipulation;
+  }
+  .tisa-page-surface :where(button, a, input, select, summary):focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+  }
+}

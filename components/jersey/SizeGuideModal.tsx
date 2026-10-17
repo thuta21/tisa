@@ -2,8 +2,8 @@
 
 import React, { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, Ruler, X } from "lucide-react";
-import { playerVersionSizeChart } from "@/lib/size-guide";
+import { Ruler, X } from "lucide-react";
+import ResponsiveSizeChart from "@/components/jersey/ResponsiveSizeChart";
 
 export default function SizeGuideModal({
   open,
@@ -24,7 +24,7 @@ export default function SizeGuideModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
       if (event.key === "Tab") {
-        const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>("button");
+        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.getClientRects().length > 0);
         const first = buttons?.[0];
         const last = buttons?.[buttons.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -58,13 +58,13 @@ export default function SizeGuideModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="size-guide-title"
-            className="absolute inset-y-0 right-0 flex w-full max-w-[42rem] flex-col bg-background shadow-2xl"
+            className="absolute inset-y-0 right-0 flex h-dvh w-full max-w-[42rem] flex-col bg-background shadow-2xl"
             initial={prefersReducedMotion ? false : { x: "100%" }}
             animate={{ x: 0 }}
             exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
             transition={prefersReducedMotion ? { duration: 0 } : { type: "spring", stiffness: 330, damping: 34 }}
           >
-            <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-7 sm:py-6">
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-7 sm:py-6">
               <div className="flex gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Ruler size={18} /></span>
                 <div>
@@ -73,24 +73,14 @@ export default function SizeGuideModal({
                   <p className="mt-1 text-sm text-muted-foreground">Compare the chart with a shirt you already own.</p>
                 </div>
               </div>
-              <button type="button" onClick={onClose} aria-label="Close size guide" className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"><X size={18} /></button>
+              <button type="button" onClick={onClose} aria-label="Close size guide" className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border transition-colors hover:bg-muted"><X size={18} /></button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-7">
               <section>
-                <div className="flex items-end justify-between gap-3"><div><h3 className="text-lg font-bold">Find your recommended size</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Length and chest values are in centimetres. Height and weight are a general guide.</p></div><span className="text-xs text-muted-foreground">Swipe table →</span></div>
-                <div className="mt-4 overflow-x-auto rounded-xl border border-border">
-                  <table className="min-w-[600px] w-full border-collapse text-left text-sm">
-                    <thead className="bg-muted text-xs font-semibold text-muted-foreground"><tr><th className="px-3 py-3">Size</th><th className="px-3 py-3">Length<br />(cm)</th><th className="px-3 py-3">Chest<br />(cm)</th><th className="px-3 py-3">Height<br />(cm)</th><th className="px-3 py-3">Weight<br />(kg)</th></tr></thead>
-                    <tbody className="divide-y divide-border">
-                      {playerVersionSizeChart.map((row) => {
-                        const available = availableSizes.includes(row.size);
-                        return <tr key={row.size} className={available ? "bg-primary/[0.04]" : "text-muted-foreground"}><td className="px-3 py-3 font-bold text-foreground"><span className="inline-flex items-center gap-1.5">{row.size}{available && <Check size={14} className="text-primary" />}</span></td><td className="px-3 py-3">{row.length}</td><td className="px-3 py-3">{row.chest}</td><td className="px-3 py-3">{row.height}<span className="mt-0.5 block text-xs text-muted-foreground">{row.feet}</span></td><td className="px-3 py-3">{row.weight}</td></tr>;
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {availableSizes.length > 0 && <p className="mt-3 text-xs text-muted-foreground"><span className="mr-1 inline-block size-2 rounded-full bg-primary" />Highlighted sizes are in stock for the selected kit.</p>}
+                <h3 className="text-lg font-bold">Find your recommended size</h3>
+                <p className="mb-4 mt-1 text-sm leading-6 text-muted-foreground">Compare length and chest width with a shirt you own. Height and weight are a general guide.</p>
+                <ResponsiveSizeChart availableSizes={availableSizes} />
               </section>
 
               <section className="mt-8 border-t border-border pt-6">
@@ -109,7 +99,7 @@ export default function SizeGuideModal({
               </div>
             </div>
 
-            <footer className="border-t border-border p-4 sm:px-7 sm:py-5"><button type="button" onClick={onClose} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Back to jersey details</button></footer>
+            <footer className="shrink-0 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-5"><button type="button" onClick={onClose} className="flex h-12 w-full items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">Back to jersey details</button></footer>
           </motion.aside>
         </div>
       )}
