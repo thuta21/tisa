@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
@@ -9,59 +9,25 @@ import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
 import FeaturedJerseyShowcase from "@/components/jersey/FeaturedJerseyShowcase";
 import {
-  loadCatalogJerseys,
-  loadCatalogLeagues,
-  loadCatalogTeams,
   type CatalogLeague,
   type CatalogJersey,
   type CatalogTeam,
 } from "@/lib/products";
 
-export default function Home() {
+export default function Home({ jerseys, catalogTeams, catalogLeagues }: {
+  jerseys: CatalogJersey[];
+  catalogTeams: CatalogTeam[];
+  catalogLeagues: CatalogLeague[];
+}) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
-  const [jerseys, setJerseys] = useState<CatalogJersey[]>([]);
-  const [catalogTeams, setCatalogTeams] = useState<CatalogTeam[]>([]);
-  const [catalogLeagues, setCatalogLeagues] = useState<CatalogLeague[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([loadCatalogJerseys(), loadCatalogTeams(), loadCatalogLeagues()])
-      .then(([items, teams, leagues]) => {
-        if (!mounted) return;
-
-        setCatalogTeams(teams);
-        setCatalogLeagues(leagues);
-
-        setJerseys(items);
-      })
-      .catch(() => {
-        if (mounted) setError(true);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [attempt]);
-
-  if (loading) {
-    return <div className="tisa-page-surface flex min-h-screen flex-col"><Navbar /><main id="main-content" tabIndex={-1} role="status" className="grid flex-1 place-items-center pt-24"><div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary motion-reduce:animate-none" /><span className="sr-only">Loading the collection</span></main><Footer /></div>;
-  }
 
   return (
     <div className="tisa-page-surface min-h-screen text-foreground flex flex-col">
       <Navbar />
 
       <main id="main-content" tabIndex={-1} className="tisa-page-surface">
-        {error ? (
-          <section role="alert" className="mx-auto max-w-2xl px-5 pb-16 pt-36 text-center"><h1 className="text-3xl font-semibold">The collection could not be loaded.</h1><p className="mt-4 text-muted-foreground">Please try again in a moment.</p><button type="button" onClick={() => { setError(false); setLoading(true); setAttempt((value) => value + 1); }} className="mt-6 min-h-12 rounded-full bg-primary px-6 text-sm font-semibold text-white">Try again</button></section>
-        ) : jerseys.length > 0 ? (
+        {jerseys.length > 0 ? (
           <FeaturedJerseyShowcase
             jerseys={jerseys}
             catalogTeams={catalogTeams}

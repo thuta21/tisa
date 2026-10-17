@@ -182,3 +182,17 @@ pnpm supabase:start   # local Supabase stack
 pnpm supabase:stop    # stop local Supabase stack
 pnpm supabase:types   # refresh local generated database types
 ```
+
+## Public collection rendering and SEO
+
+Home, collection and jersey detail pages render their initial catalog on the server,
+with route skeletons during loading. Public preview queries omit prices and
+size-level inventory; commerce and admin queries keep their existing data.
+Product metadata and page rendering share one request-scoped lookup.
+
+Set `NEXT_PUBLIC_SITE_URL` to the public production origin (for example,
+`https://your-production-domain.com`) before deployment. This configures absolute
+canonical/share URLs and `/sitemap.xml`. Without it, the sitemap stays empty
+instead of publishing an invented production hostname. `/robots.txt` excludes
+admin, API and account/checkout utility routes. Product links include their own
+title, description and jersey image; other pages have a TISA sharing image.

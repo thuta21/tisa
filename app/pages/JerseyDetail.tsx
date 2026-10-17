@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Image from "next/image";
+import PreviewImage from "@/components/jersey/PreviewImage";
 import Link from "next/link";
 import { ChevronRight, Ruler } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
@@ -17,7 +17,6 @@ export default function JerseyDetail({ jersey, alternatives }: { jersey: Catalog
   const [side, setSide] = useState<"front" | "back">("front");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const closeSizeGuide = useCallback(() => setSizeGuideOpen(false), [setSizeGuideOpen]);
-  const [failedImage, setFailedImage] = useState("");
   const activeKit = getCatalogPreviewKit(jersey, selectedKit);
   const kit = activeKit ? jersey.kits[activeKit] : null;
   const activeSide = side === "back" && kit?.imageBack ? "back" : "front";
@@ -32,7 +31,7 @@ export default function JerseyDetail({ jersey, alternatives }: { jersey: Catalog
           <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><Link href="/">Home</Link><ChevronRight size={12} /><Link href="/shop">Collection</Link><ChevronRight size={12} /><span aria-current="page" className="text-foreground">{jersey.name}</span></nav>
           <div className="grid gap-7 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:gap-10">
             <div>
-              <div className="relative aspect-square overflow-hidden rounded-[28px] border border-border bg-white/65"><Image key={image} src={failedImage === image ? "/assets/jersey-placeholder.svg" : image} alt={activeKit ? `${jersey.name}, ${activeKit} kit, ${activeSide} view` : `${jersey.name}, kit preview unavailable`} fill priority sizes="(min-width: 1024px) 55vw, 100vw" className="object-contain p-5 sm:p-8" onError={() => setFailedImage(image)} /></div>
+              <div className="relative aspect-square overflow-hidden rounded-[28px] border border-border bg-white/65"><PreviewImage key={image} src={image} alt={activeKit ? `${jersey.name}, ${activeKit} kit, ${activeSide} view` : `${jersey.name}, kit preview unavailable`} fill priority sizes="(min-width: 1024px) 55vw, 100vw" className="object-contain p-5 sm:p-8" /></div>
               {kit && (
                 <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Jersey view">
                   {(["front", "back"] as const).map((view) => {
