@@ -19,6 +19,8 @@ export async function generateMetadata({ params }: PageProps<"/jersey/[id]">): P
 export default async function Page({ params }: PageProps<"/jersey/[id]">) {
   const jersey = await getPreviewProduct((await params).id);
   if (!jersey) notFound();
-  const alternatives = getSleeveAlternatives(await getPreviewAlternatives(jersey), jersey);
-  return <JerseyDetail key={jersey.productId} jersey={jersey} alternatives={alternatives} />;
+  const teamJerseys = await getPreviewAlternatives(jersey);
+  const alternatives = getSleeveAlternatives(teamJerseys, jersey);
+  const related = teamJerseys.filter(item => item.productId !== jersey.productId).slice(0, 3);
+  return <JerseyDetail key={jersey.productId} jersey={jersey} alternatives={alternatives} related={related} />;
 }

@@ -35,7 +35,10 @@ export const getPreviewProduct = cache(async (id: string) => {
 export async function getPreviewAlternatives(jersey: Awaited<ReturnType<typeof getPreviewProduct>>) {
   if (!jersey) return [];
   const db = await createSupabaseServerClient();
-  const { data, error } = await db.from("products").select(previewProductSelect).eq("status", "active").eq("team", jersey.product.team);
+  const query = db.from("products").select(previewProductSelect).eq("status", "active");
+  const { data, error } = await (jersey.product.teams?.id
+    ? query.eq("team_id", jersey.product.teams.id)
+    : query.eq("team", jersey.product.team)).order("featured", { ascending: false }).order("created_at", { ascending: false });
   if (error) throw new Error("Sleeve styles could not be loaded. Please try again.");
   return (data ?? []).map(toJersey);
 }

@@ -1,46 +1,62 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
-import PreviewImage from "@/components/jersey/PreviewImage";
-import Link from "next/link";
-import { ArrowUpRight, PackageSearch, Search } from "lucide-react";
+import { useDeferredValue, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { PackageSearch, Search, X } from "lucide-react";
 import Navbar from "@/components/jersey/Navbar";
 import Footer from "@/components/jersey/Footer";
-import { type CatalogJersey } from "@/lib/products";
+import ProductCard from "@/components/jersey/ProductCard";
+import type { CatalogJersey } from "@/lib/products";
+import { filterCatalog, readCatalogFilters, type CatalogFilters } from "@/lib/catalog-filters";
+import { sleeveOptions } from "@/lib/product-sleeves";
+import { kitOptions } from "@/lib/jerseys";
 
+const selectClass = "h-12 w-full rounded-xl border border-border bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-primary";
 export default function Shop({ jerseys }: { jerseys: CatalogJersey[] }) {
-  const [search, setSearch] = useState("");
-  const [league, setLeague] = useState("");
-  const [team, setTeam] = useState("");
-
-  const deferredSearch = useDeferredValue(search);
-
-  const leagues = useMemo(() => [...new Set(jerseys.map((item) => item.league).filter(Boolean))].sort(), [jerseys]);
-  const teams = useMemo(() => [...new Set(jerseys.filter((item) => !league || item.league === league).map((item) => item.team).filter(Boolean))].sort(), [jerseys, league]);
-  const filtered = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase();
-    return jerseys.filter((item) => (!league || item.league === league) && (!team || item.team === team) && (!query || [item.name, item.team, item.league, item.season].some((value) => value.toLowerCase().includes(query))));
-  }, [jerseys, league, team, deferredSearch]);
-  const hasFilters = Boolean(search || league || team);
-
-  return (
-    <div className="tisa-page-surface flex min-h-screen flex-col text-foreground">
-      <Navbar />
-      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 pt-28 sm:pb-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">TISA collection</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">Find your team.</h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">Explore jersey designs and kit details. This is a collection preview; online ordering is not open yet.</p>
-          <div className="mt-8 grid items-end gap-4 rounded-2xl border border-border bg-white/75 p-4 sm:grid-cols-[minmax(0,2fr)_1fr_1fr] sm:p-5">
-            <label className="grid gap-2 text-sm font-medium">Search collection<span className="relative"><Search size={18} className="absolute left-3 top-3.5 text-muted-foreground" /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search a team or jersey" className="h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-base outline-none focus:border-primary" /></span></label>
-            <label className="grid gap-2 text-sm font-medium">League<select value={league} onChange={(event) => { setLeague(event.target.value); setTeam(""); }} className="h-12 w-full rounded-xl border border-border bg-background px-3 text-base"><option value="">All leagues</option>{leagues.map((name) => <option key={name}>{name}</option>)}</select></label>
-            <label className="grid gap-2 text-sm font-medium">Team<select value={team} onChange={(event) => setTeam(event.target.value)} className="h-12 w-full rounded-xl border border-border bg-background px-3 text-base"><option value="">All teams</option>{teams.map((name) => <option key={name}>{name}</option>)}</select></label>
-          </div>
-          <div className="my-6 flex min-h-10 items-center justify-between gap-4"><p role="status" className="text-sm text-muted-foreground">{filtered.length} {filtered.length === 1 ? "jersey" : "jerseys"}</p>{hasFilters && <button type="button" onClick={() => { setSearch(""); setLeague(""); setTeam(""); }} className="min-h-10 px-2 text-sm font-medium text-primary">Clear filters</button>}</div>
-          {filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-border py-16 text-center"><PackageSearch size={32} className="mx-auto text-muted-foreground" /><h2 className="mt-4 text-xl font-semibold">{hasFilters ? "No matching jerseys." : "The collection is being prepared."}</h2><p className="mt-2 text-sm text-muted-foreground">{hasFilters ? "Try a different team or clear your filters." : "Check back for a first look at our jerseys."}</p></div> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map((jersey) => <Link key={jersey.productId} href={`/jersey/${jersey.slug}`} className="group overflow-hidden rounded-[24px] border border-border bg-white/85 transition-shadow hover:shadow-lg"><div className="relative aspect-[4/3] bg-[#eeece7]"><PreviewImage key={jersey.image_front} src={jersey.image_front} alt={jersey.name} fill sizes="(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw" className="object-contain p-6 transition-transform duration-300 group-hover:scale-[1.035]" /></div><div className="p-5"><p className="text-xs text-muted-foreground">{jersey.league}{jersey.season ? ` · ${jersey.season}` : ""}</p><h2 className="mt-2 text-xl font-semibold tracking-tight">{jersey.name}</h2><span className="mt-4 flex items-center justify-between text-sm font-medium text-primary">View jersey details <ArrowUpRight size={18} /></span></div></Link>)}</div>}
+  const params = useSearchParams();
+  const filters = readCatalogFilters(params);
+  const query = useDeferredValue(params.toString());
+  const filtered = useMemo(() => filterCatalog(jerseys, readCatalogFilters(new URLSearchParams(query))), [jerseys, query]);
+  const options = (field: "league" | "team" | "season") => [...new Set(jerseys.filter(item => field !== "team" || !filters.league || item.league === filters.league).map(item => item[field]).filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+  const update = (key: keyof CatalogFilters, value: string) => {
+    const next = new URLSearchParams(window.location.search);
+    if (value && !(key === "sort" && value === "featured")) next.set(key, value); else next.delete(key);
+    if (key === "league") next.delete("team");
+    window.history.replaceState(null, "", `/shop${next.size ? `?${next}` : ""}`);
+  };
+  const activeFilters = Object.entries(filters).filter(([key, value]) => key !== "sort" && value);
+  const clear = () => {
+    const next = new URLSearchParams(window.location.search);
+    for (const key of ["q", "league", "team", "season", "sleeve", "kit"]) next.delete(key);
+    window.history.replaceState(null, "", `/shop${next.size ? `?${next}` : ""}`);
+  };
+  return <div className="tisa-page-surface flex min-h-screen flex-col text-foreground">
+    <Navbar />
+    <main id="main-content" tabIndex={-1} className="flex-1 pb-16 pt-28 sm:pb-24">
+      <div className="mx-auto max-w-7xl px-5 sm:px-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">TISA collection</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">Find your team.</h1>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">Explore jersey designs and kit details. This is a collection preview; online ordering is not open yet.</p>
+        <div className="mt-8 grid items-end gap-4 rounded-2xl border border-border bg-white/75 p-4 sm:grid-cols-2 sm:p-5">
+          <label className="grid gap-2 text-sm font-medium sm:col-span-2">Search collection<span className="relative"><Search size={18} aria-hidden="true" className="absolute left-3 top-3.5 text-muted-foreground" /><input type="search" value={filters.q} onChange={e => update("q", e.target.value)} placeholder="Search team, season or kit style" className={`${selectClass} pl-10 pr-3`} /></span></label>
+          {(["league", "team"] as const).map(field => <label key={field} className="grid gap-2 text-sm font-medium"><span className="capitalize">{field}</span><select value={filters[field]} onChange={e => update(field, e.target.value)} className={selectClass}><option value="">All {field === "league" ? "leagues" : "teams"}</option>{filters[field] && !options(field).includes(filters[field]) && <option value={filters[field]}>{filters[field]}</option>}{options(field).map(value => <option key={value}>{value}</option>)}</select></label>)}
+          <details className="border-t border-border pt-4 sm:col-span-2">
+            <summary className="min-h-11 cursor-pointer text-sm font-medium text-primary">Style filters &amp; sorting</summary>
+            <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="grid gap-2 text-sm font-medium">Season<select className={selectClass} value={filters.season} onChange={e => update("season", e.target.value)}><option value="">All seasons</option>{filters.season && !options("season").includes(filters.season) && <option>{filters.season}</option>}{options("season").map(value => <option key={value}>{value}</option>)}</select></label>
+          <label className="grid gap-2 text-sm font-medium">Sleeve<select className={selectClass} value={filters.sleeve} onChange={e => update("sleeve", e.target.value)}><option value="">All sleeves</option>{sleeveOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+          <label className="grid gap-2 text-sm font-medium">Kit design<select className={selectClass} value={filters.kit} onChange={e => update("kit", e.target.value)}><option value="">All kit designs</option>{kitOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+          <label className="grid gap-2 text-sm font-medium">Sort by<select className={selectClass} value={filters.sort} onChange={e => update("sort", e.target.value)}><option value="featured">Featured &amp; newest</option><option value="name">Name: A–Z</option><option value="season">Latest season</option></select></label>
+            </div>
+          </details>
         </div>
-      </main>
-      <Footer />
-    </div>
-  );
+        {activeFilters.length > 0 && <div className="mt-4 flex flex-wrap gap-2" aria-label="Active filters">{activeFilters.map(([key, value]) => <button key={key} type="button" aria-label={`Remove ${key === "q" ? "search" : key} filter: ${value}`} onClick={() => update(key as keyof CatalogFilters, "")} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 text-sm text-primary"><span className="capitalize">{key === "q" ? "Search" : key}: {value}</span><X aria-hidden="true" size={14} /></button>)}</div>}
+        <div className="my-6 flex min-h-10 items-center justify-between gap-4"><p role="status" aria-live="polite" className="text-sm text-muted-foreground">{filtered.length} {filtered.length === 1 ? "jersey" : "jerseys"}</p>{activeFilters.length > 0 && <button type="button" onClick={clear} className="min-h-11 px-2 text-sm font-medium text-primary">Clear filters</button>}</div>
+        <div aria-busy={query !== params.toString()}>
+          {filtered.length === 0 ? <div className="rounded-2xl border border-dashed border-border px-5 py-16 text-center"><PackageSearch size={32} aria-hidden="true" className="mx-auto text-muted-foreground" /><h2 className="mt-4 text-xl font-semibold">{activeFilters.length ? "No matching jerseys." : "The collection is being prepared."}</h2><p className="mt-2 text-sm text-muted-foreground">{activeFilters.length ? "Try another style or clear your filters to explore the collection." : "Check back for a first look at our jerseys."}</p>{activeFilters.length > 0 && <button type="button" onClick={clear} className="mt-5 min-h-12 rounded-full bg-primary px-6 text-sm font-semibold text-white">Clear filters</button>}</div> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(jersey => <ProductCard key={jersey.productId} jersey={jersey} kit={filters.kit} />)}</div>}
+        </div>
+      </div>
+    </main>
+    <Footer />
+  </div>;
 }

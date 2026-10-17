@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import FeaturedJerseyShowcase from "@/components/jersey/FeaturedJerseyShowcase";
 import JerseyDetail from "@/app/pages/JerseyDetail";
@@ -138,6 +138,22 @@ describe("catalog preview availability", () => {
 });
 
 describe("kit selectors with admin-visible catalog data", () => {
+  it("restarts image loading when switching front and back views", async () => {
+    const jersey = productToCatalogJersey(product([variant("home")]));
+    render(createElement(JerseyDetail, { jersey, alternatives: [jersey] }));
+    expect(screen.getByRole("status").textContent).toContain("Loading front view");
+    fireEvent.load(screen.getByRole("img", { name: /home kit, front view/ }));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "back view" }));
+    expect(screen.getByRole("status").textContent).toContain("Loading back view");
+    fireEvent.load(screen.getByRole("img", { name: /home kit, back view/ }));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "front view" }));
+    expect(screen.getByRole("status").textContent).toContain("Loading front view");
+  });
+
   it("disables Third and falls back to Home when changing to a sleeve without Away", () => {
     const short = productToCatalogJersey(product([variant("home"), variant("away"), variant("third", { available: false })]));
     const long = productToCatalogJersey(product([variant("home")], { id: "arsenal-long", slug: "arsenal-long", sleeve: "long" }));
