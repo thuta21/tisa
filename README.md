@@ -256,6 +256,9 @@ Messenger, WhatsApp or phone. Configure the Facebook/Messenger page URL with
 `NEXT_PUBLIC_WHATSAPP_NUMBER` and the calling number with
 `NEXT_PUBLIC_CONTACT_PHONE`. Only validated configured links/numbers are appended;
 missing values produce a notice and are never replaced with dummy contact data.
+TISA's confirmed public Page link and +971543831461 WhatsApp/calling number are
+the defaults in `lib/marketing/contact-config.ts`, so deployments work without
+additional contact environment setup. Nonblank environment values override them.
 Prices, stock, discounts, quality and delivery promises are never
 invented. Existing saved captions stay as written; click **Use sales caption
 template** to replace one explicitly. AI generation saves current edits first,

@@ -13,13 +13,20 @@ import {
   normalizeMarketingContacts,
 } from "./content";
 import type { Asset, Draft, Job, MarketingProduct, Snapshot } from "./types";
+import { defaultMarketingContacts } from "./contact-config";
 export type MarketingDb = Awaited<ReturnType<typeof adminClient>>;
 export const bucket = "marketing-assets";
 export function marketingContacts() {
   return normalizeMarketingContacts({
-    facebook: process.env.NEXT_PUBLIC_FACEBOOK_PAGE_URL,
-    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
-    phone: process.env.NEXT_PUBLIC_CONTACT_PHONE,
+    facebook:
+      process.env.NEXT_PUBLIC_FACEBOOK_PAGE_URL?.trim() ||
+      defaultMarketingContacts.facebook,
+    whatsapp:
+      process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ||
+      defaultMarketingContacts.whatsapp,
+    phone:
+      process.env.NEXT_PUBLIC_CONTACT_PHONE?.trim() ||
+      defaultMarketingContacts.phone,
   });
 }
 export function check<T>(
