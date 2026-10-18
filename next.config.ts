@@ -14,6 +14,7 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "form-action 'self'",
       "img-src 'self' data: blob: https:",
+      "media-src 'self' https://*.supabase.co blob:",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       scriptSrc,
@@ -27,6 +28,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["ffmpeg-static", "sharp"],
+  outputFileTracingIncludes: {
+    "/api/admin/marketing/drafts/*/render": ["node_modules/ffmpeg-static/ffmpeg", "public/assets/tisa-logo.png"],
+  },
   images: {
     remotePatterns: [
       {

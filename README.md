@@ -196,3 +196,104 @@ canonical/share URLs and `/sitemap.xml`. Without it, the sitemap stays empty
 instead of publishing an invented production hostname. `/robots.txt` excludes
 admin, API and account/checkout utility routes. Product links include their own
 title, description and jersey image; other pages have a TISA sharing image.
+
+## Admin Marketing Studio
+
+Open **Admin → Marketing** (`/admin/marketing`), or **Create content** beside a
+product. This workspace reads descriptive catalog data only; it does not load
+orders, payments or size-level inventory. It creates exportable content, not
+social-platform posts. No Facebook/TikTok tokens or scheduler subscription are
+required in this version.
+
+### Setup and deployment
+
+1. Apply `supabase/migrations/20261018120000_marketing_studio.sql` through the
+   authenticated Supabase migration workflow. This adds three admin-only tables,
+   transactional job leases and the private `marketing-assets` bucket. The
+   publishable application key cannot apply schema migrations. Missing tables
+   produce a setup notice without breaking the rest of Admin.
+2. Set `NEXT_PUBLIC_SITE_URL` to the real public production origin. Without it,
+   captions and exports still work, with a notice and no invented product link.
+3. Optionally set **server-only** `OPENAI_API_KEY`, `OPENAI_MARKETING_MODEL`
+   (default `gpt-6-luna`) and `OPENAI_MARKETING_DAILY_LIMIT` (default 20 per admin
+   per UTC day; maximum 100). Configure an accessible model in your OpenAI
+   project. Keys are never entered into the editor or included in the browser
+   bundle. Templates and rendering work without OpenAI. AI generation happens
+   only when requested and reserves quota even when the provider fails.
+4. Deploy with Vercel's Node.js runtime and Fluid compute enabled. The render
+   route uses `maxDuration=300`; FFmpeg is terminated after 240 seconds. The
+   `ffmpeg-static` install script is explicitly permitted in pnpm workspace
+   configuration. Install dependencies on the target build platform so the
+   correct FFmpeg binary is downloaded; never copy macOS `node_modules` to Linux.
+   `next.config.ts` includes the binary only in the dedicated render function.
+5. On a **Vercel Preview deployment**, create a four-image draft, save, mark ready,
+   and export the 12-second video. Confirm the generated function is below the
+   platform's bundle limit, render finishes within its time limit, Storage upload
+   succeeds, and the private signed download plays. Complete this check before
+   deploying the feature to production. Local rendering does not establish
+   Vercel deployment compatibility.
+
+No separate rendering subscription is added. Video CPU time, Storage and
+optional OpenAI calls still consume the associated provider quotas. Vercel
+settings and hosted SQL migration require authenticated access to those services.
+
+### Content workflow
+
+Choose up to six active products to create independent drafts. Each draft freezes
+its descriptive metadata and original images into private storage. Select 1–4
+images, reorder them, choose a Burmese caption template, then edit the caption.
+Comparison requires images from at least two enabled kits. Save changes and
+explicitly **Mark ready** before exporting. Optional AI suggestions never replace
+an edited caption until selected. AI receives descriptive product facts only,
+not original descriptions, customer details, payment data, prices or stock.
+
+The first image produces a **1080×1350 PNG**. Video requires 2–4 images and produces
+a silent **720×1280 H.264/yuv420p MP4 at 24fps**, 9 seconds for two/three images and
+12 seconds for four. Previews and exports use the same frame renderer. Product
+photos and English product text are used; there is no AI image/video generation,
+price, stock, purchase CTA, or automatic music licensing step. Add audio in your
+social app when publishing.
+
+Editing a draft increments its revision and requires review again. Refreshing
+or replacing the product snapshot is explicit and keeps the caption for review.
+Archived/deleted source products block new exports but previously saved exports
+remain downloadable. Duplicate drafts get independent frozen image files.
+Review and new exports also check that the selected kits are still enabled;
+refresh the snapshot explicitly if a kit has been disabled.
+
+One job may run per draft, coordinated by PostgreSQL across server instances.
+Expired jobs can be retried; late results cannot overwrite a newer revision.
+Completed exports are reusable, so repeated downloads do not rerender files.
+Bulk export sends sequential requests while the page stays open; it is not a
+background scheduler. Closing the page stops any requests not yet started.
+
+Saved files live in private Storage. Download URLs expire after five minutes;
+click Download again for a fresh URL. Depending on iOS/Android browser settings,
+a download may open a media preview: use Share / Save to Files / Download to keep
+it. Check both Safari on iOS and Chrome on Android during deployment QA.
+
+The workspace shows recent job durations, errors and AI token usage. The recent
+operations summary is limited to the latest 100 jobs; the draft detail shows the
+latest 30. Archive is reversible and retains export files; monitor Storage usage
+as the content library grows.
+
+### Marketing checks
+
+`pnpm exec vitest run tests/marketing-*.test.ts tests/marketing-workspace.test.tsx`
+checks permissions, PostgreSQL leases/revisions/quota, content boundaries,
+no-key editing, missing-migration behavior, actual PNG rendering and actual
+four-scene MP4 encoding/decoding. Then run the standard lint, TypeScript, full
+suite and production build checks above. Hosted migrations, live OpenAI access,
+Vercel Preview performance and physical-device downloads need separate
+integration verification; mocked UI tests are not evidence of those checks.
+
+Implementation verification (2026-10-18): lint, TypeScript, all 75 Vitest tests
+and the production build passed locally. The shared renderer produced a real
+1080×1350 PNG and a four-scene 720×1280, 24fps, 12-second H.264/yuv420p MP4.
+Local authenticated-service mocks were used for browser layout checks at 320px,
+393px (phone preset), 768px and desktop; no hosted data was changed. Local route
+traces contained FFmpeg only in the render route (81.1 MiB on macOS versus
+37.6 MiB for the marketing API); Linux/Vercel bundle size must be checked separately.
+The build's missing `metadataBase` warning reflects the unconfigured production
+site origin. Hosted migration, the Vercel four-image smoke test, live optional
+OpenAI, exact 390px QA and physical iOS/Android downloads remain rollout gates.
