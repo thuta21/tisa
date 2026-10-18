@@ -6,6 +6,8 @@ import {
   toMarketingProduct,
   productUrl,
   validateCurrentKits,
+  templateCaptionOptions,
+  normalizeMarketingContacts,
 } from "@/lib/marketing/content";
 import type { Draft, Snapshot } from "@/lib/marketing/types";
 const snapshot: Snapshot = {
@@ -34,6 +36,54 @@ const snapshot: Snapshot = {
   ],
 };
 describe("marketing product content boundary", () => {
+  it("creates three distinct template options with all three enquiry channels and no invented contact details", () => {
+    const options = templateCaptionOptions(snapshot, "fan", undefined, ["a"]);
+    expect(options).toHaveLength(3);
+    expect(new Set(options).size).toBe(3);
+    for (const caption of options) {
+      expect(caption).toContain("Page Messenger၊ WhatsApp သို့မဟုတ် ဖုန်း");
+      expect(caption).not.toMatch(/https?:|undefined|Away Kit/);
+    }
+    expect(() =>
+      templateCaptionOptions(snapshot, "comparison", undefined, ["a"]),
+    ).toThrow("two enabled kits");
+  });
+  it("adds only validated business contact links and numbers", () => {
+    const contacts = {
+      facebook: "https://www.facebook.com/tisa.example",
+      whatsapp: "+971 50 123 4567",
+      phone: "+971 50 123 4567",
+    };
+    const caption = templateCaption(
+      snapshot,
+      "showcase",
+      undefined,
+      ["a"],
+      contacts,
+    );
+    expect(caption).toContain(
+      "Facebook / Messenger: https://www.facebook.com/tisa.example",
+    );
+    expect(caption).toContain("WhatsApp: https://wa.me/971501234567");
+    expect(caption).toContain("ဖုန်း: +971 50 123 4567");
+    expect(
+      normalizeMarketingContacts({
+        facebook: "javascript:alert(1)",
+        whatsapp: "not a number",
+        phone: "https://example.test",
+      }),
+    ).toEqual({});
+    expect(
+      normalizeMarketingContacts({
+        facebook: "https://facebook.com.evil.test/tisa",
+      }),
+    ).toEqual({});
+    expect(
+      normalizeMarketingContacts({
+        facebook: "https://password@facebook.com/tisa",
+      }),
+    ).toEqual({});
+  });
   it("blocks new exports when a frozen selection's kit has since been disabled", () => {
     const draft = { snapshot, selected_images: ["b"] } as Draft;
     expect(() =>

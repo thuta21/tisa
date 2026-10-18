@@ -43,6 +43,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
 NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=false
 NEXT_PUBLIC_SUPPORT_EMAIL=
 NEXT_PUBLIC_WHATSAPP_NUMBER=
+NEXT_PUBLIC_FACEBOOK_PAGE_URL=
+NEXT_PUBLIC_CONTACT_PHONE=
 RAG_WORKER_SECRET=replace-with-a-long-random-secret
 ```
 
@@ -249,11 +251,20 @@ not original descriptions, customer details, payment data, prices or stock.
 
 Captions use a direct Burmese sales pitch: a fan-focused hook, selected kit and
 season details, and an invitation to enquire about ordering through Page
-Messenger. Prices, stock, discounts, quality and delivery promises are never
+Messenger, WhatsApp or phone. Configure the Facebook/Messenger page URL with
+`NEXT_PUBLIC_FACEBOOK_PAGE_URL`, a country-code WhatsApp number with
+`NEXT_PUBLIC_WHATSAPP_NUMBER` and the calling number with
+`NEXT_PUBLIC_CONTACT_PHONE`. Only validated configured links/numbers are appended;
+missing values produce a notice and are never replaced with dummy contact data.
+Prices, stock, discounts, quality and delivery promises are never
 invented. Existing saved captions stay as written; click **Use sales caption
 template** to replace one explicitly. AI generation saves current edits first,
 then presents three alternatives for review. With no server key, **Set up AI**
 opens setup instructions; the sales templates work immediately without a key.
+**Generate 3 captions · no AI** creates three distinct template options in the
+browser from the selected tone and product facts, with no OpenAI request, job or
+API quota usage. Choosing an option changes the editor; **Save draft** persists
+it. It never replaces a manually written caption just by generating options.
 For local setup put `OPENAI_API_KEY` in ignored `.env.local`, restart the dev
 server and refresh Marketing. On Vercel, set it in the relevant environment and
 redeploy. Never use a `NEXT_PUBLIC_` prefix for a secret API key.
@@ -298,7 +309,7 @@ suite and production build checks above. Hosted migrations, live OpenAI access,
 Vercel Preview performance and physical-device downloads need separate
 integration verification; mocked UI tests are not evidence of those checks.
 
-Implementation verification (2026-10-18): lint, TypeScript, all 77 Vitest tests
+Implementation verification (2026-10-18): lint, TypeScript, all 80 Vitest tests
 and the production build passed locally. The shared renderer produced a real
 1080×1350 PNG and a four-scene 720×1280, 24fps, 12-second H.264/yuv420p MP4.
 Local authenticated-service mocks were used for browser layout checks at 320px,

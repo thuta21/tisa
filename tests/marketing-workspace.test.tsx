@@ -98,6 +98,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("Marketing Studio without OpenAI credentials", () => {
+  it("offers three captions without saving, replacing text, or sending AI requests until an option is chosen", async () => {
+    render(<MarketingWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Arsenal Test Jersey/ }),
+    );
+    await screen.findByRole("heading", { name: "Arsenal Test Jersey" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "2. Caption & design" }),
+    );
+    fireEvent.change(screen.getByLabelText("Burmese caption"), {
+      target: { value: "Keep my own caption" },
+    });
+    const before = calls.length;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Generate 3 captions · no AI" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Template caption options · no AI" }),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: /Use option [123]/ }),
+    ).toHaveLength(3);
+    expect(
+      (screen.getByLabelText("Burmese caption") as HTMLTextAreaElement).value,
+    ).toBe("Keep my own caption");
+    expect(calls).toHaveLength(before);
+    fireEvent.click(screen.getByRole("button", { name: "Use option 2" }));
+    expect(
+      (screen.getByLabelText("Burmese caption") as HTMLTextAreaElement).value,
+    ).toContain("WhatsApp သို့မဟုတ် ဖုန်း");
+    expect(calls.some((call) => call.path.includes("/ai"))).toBe(false);
+    expect(current.caption).toBe("မြန်မာ preview caption");
+  });
   it("loads only marketing data and supports editing, review and ordered previews", async () => {
     render(<MarketingWorkspace />);
     await screen.findByRole("button", { name: /Arsenal Test Jersey/ });

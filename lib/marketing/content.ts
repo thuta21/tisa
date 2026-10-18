@@ -8,6 +8,45 @@ import type {
 } from "./types";
 export const marketingSelect =
   "id,name,slug,team,category,season,sleeve,leagues(name),teams(name),seasons(name),product_variants(id,kit,available,image_front_path,image_back_path)";
+export type MarketingContacts = {
+  facebook?: string;
+  whatsapp?: string;
+  phone?: string;
+};
+export function normalizeMarketingContacts(
+  input: MarketingContacts,
+): MarketingContacts {
+  const result: MarketingContacts = {};
+  try {
+    const url = new URL(input.facebook ?? "");
+    if (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      url.href.length <= 300 &&
+      [
+        "facebook.com",
+        "www.facebook.com",
+        "m.facebook.com",
+        "fb.com",
+        "www.fb.com",
+        "m.me",
+      ].includes(url.hostname)
+    )
+      result.facebook = url.href;
+  } catch {
+    /* A missing or invalid contact must not become a caption link. */
+  }
+  const whatsapp = input.whatsapp?.replace(/[\s()+.-]/g, "") ?? "";
+  if (/^[1-9]\d{7,14}$/.test(whatsapp)) result.whatsapp = whatsapp;
+  const phone = input.phone?.trim() ?? "";
+  if (
+    /^\+?[\d\s().-]{7,24}$/.test(phone) &&
+    phone.replace(/\D/g, "").length >= 7
+  )
+    result.phone = phone;
+  return result;
+}
 type ProductRow = {
   id: string;
   name: string;
@@ -67,6 +106,8 @@ export function templateCaption(
   tone: Tone,
   origin?: string,
   selectedImageIds?: string[],
+  contacts: MarketingContacts = {},
+  variation = 0,
 ) {
   const images = selectedImageIds
     ? snapshot.images.filter((image) => selectedImageIds.includes(image.id))
@@ -74,12 +115,25 @@ export function templateCaption(
   const kits = [...new Set(images.map((image) => image.kit))]
     .map((kit) => `${kit[0].toUpperCase()}${kit.slice(1)} Kit`)
     .join(" / ");
-  const intro =
+  const hooks =
     tone === "fan"
-      ? `${snapshot.team} ပရိသတ်ဆို ကိုယ့်အသင်းရဲ့ jersey လေးနဲ့ အားပေးလိုက်ပါ ⚽`
+      ? [
+          `${snapshot.team} ပရိသတ်ဆို ကိုယ့်အသင်းရဲ့ jersey လေးနဲ့ အားပေးလိုက်ပါ ⚽`,
+          `${snapshot.team} ကို အားပေးတဲ့သူတွေအတွက် ကိုယ့်အသင်းအရောင်နဲ့ jersey လေး ရွေးကြမယ် ⚽`,
+          `ပွဲကြည့်ချိန်မှာ ကိုယ့်အသင်းကို ပိုအားပေးချင်သလား? ${snapshot.team} jersey လေးကို ကြည့်လိုက်ပါ ⚽`,
+        ]
       : tone === "comparison"
-        ? `${snapshot.team} အတွက် ${kits} — ဘယ် kit လေးကို ဝတ်ပြီး အားပေးမလဲ? ⚽`
-        : `ကိုယ့်အသင်းကို အားပေးဖို့ ${snapshot.team} jersey လေး ရွေးလိုက်ပါ ⚽`;
+        ? [
+            `${snapshot.team} အတွက် ${kits} — ဘယ် kit လေးကို ဝတ်ပြီး အားပေးမလဲ? ⚽`,
+            `${snapshot.team} jersey ရွေးနေတယ်ဆို ${kits} ဒီဇိုင်းတွေကို ယှဉ်ကြည့်လိုက်ပါ ⚽`,
+            `ကိုယ့်စတိုင်နဲ့ လိုက်မယ့် ${snapshot.team} kit လေးကို ရွေးကြမယ် — ${kits} ⚽`,
+          ]
+        : [
+            `ကိုယ့်အသင်းကို အားပေးဖို့ ${snapshot.team} jersey လေး ရွေးလိုက်ပါ ⚽`,
+            `${snapshot.team} jersey ရှာနေတယ်ဆို ဒီဒီဇိုင်းလေးကို ကြည့်လိုက်ပါ ⚽`,
+            `ပွဲနေ့မှာ ${snapshot.team} အရောင်နဲ့ အတူရှိနေဖို့ jersey လေးတစ်ထည် ရွေးကြမယ် ⚽`,
+          ];
+  const intro = hooks[variation] ?? hooks[0];
   const facts = [
     snapshot.season && `${snapshot.season} Season`,
     kits,
@@ -95,17 +149,46 @@ export function templateCaption(
     `${intro}\n\n${snapshot.name}${facts ? `\n${facts}` : ""}`,
     snapshot,
     origin,
+    contacts,
+  );
+}
+export function templateCaptionOptions(
+  snapshot: Snapshot,
+  tone: Tone,
+  origin?: string,
+  selectedImageIds = snapshot.images.map((image) => image.id),
+  contacts: MarketingContacts = {},
+) {
+  validateEdit({ snapshot }, selectedImageIds, tone, "Template caption");
+  return [0, 1, 2].map((variation) =>
+    templateCaption(
+      snapshot,
+      tone,
+      origin,
+      selectedImageIds,
+      contacts,
+      variation,
+    ),
   );
 }
 export const marketingCallToAction =
-  "မှာယူလိုပါက Page Messenger မှာ ကြိုက်တဲ့ team၊ kit နဲ့ size ကို ပို့ပြီး စျေးနှုန်းနဲ့ ရရှိနိုင်မှုကို စုံစမ်းနိုင်ပါတယ်။";
+  "မှာယူလိုပါက ကြိုက်တဲ့ team၊ kit နဲ့ size ကို ပြောပြီး Page Messenger၊ WhatsApp သို့မဟုတ် ဖုန်းကနေ စျေးနှုန်းနဲ့ ရရှိနိုင်မှုကို စုံစမ်းနိုင်ပါတယ်။";
 export function finishCaption(
   body: string,
   snapshot: Snapshot,
   origin?: string,
+  contacts: MarketingContacts = {},
 ) {
   const url = productUrl(snapshot, origin);
-  return `${body.trim()}\n\n${marketingCallToAction}${url ? `\nဒီဇိုင်းကြည့်ရန်: ${url}` : ""}\n\n#TISA #FootballJersey`;
+  const valid = normalizeMarketingContacts(contacts);
+  const contactLines = [
+    valid.facebook && `Facebook / Messenger: ${valid.facebook}`,
+    valid.whatsapp && `WhatsApp: https://wa.me/${valid.whatsapp}`,
+    valid.phone && `ဖုန်း: ${valid.phone}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return `${body.trim()}\n\n${marketingCallToAction}${contactLines ? `\n${contactLines}` : ""}${url ? `\nဒီဇိုင်းကြည့်ရန်: ${url}` : ""}\n\n#TISA #FootballJersey`;
 }
 export function validateEdit(
   draft: Pick<Draft, "snapshot">,

@@ -10,10 +10,18 @@ import {
   templateCaption,
   validateEdit,
   validateCurrentKits,
+  normalizeMarketingContacts,
 } from "./content";
 import type { Asset, Draft, Job, MarketingProduct, Snapshot } from "./types";
 export type MarketingDb = Awaited<ReturnType<typeof adminClient>>;
 export const bucket = "marketing-assets";
+export function marketingContacts() {
+  return normalizeMarketingContacts({
+    facebook: process.env.NEXT_PUBLIC_FACEBOOK_PAGE_URL,
+    whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
+    phone: process.env.NEXT_PUBLIC_CONTACT_PHONE,
+  });
+}
 export function check<T>(
   data: T,
   error: { message: string; code?: string } | null,
@@ -162,6 +170,7 @@ export async function createDraft(
           "showcase",
           origin,
           frozen.snapshot.images.slice(0, 4).map((i) => i.id),
+          marketingContacts(),
         ),
       })
       .select("*")

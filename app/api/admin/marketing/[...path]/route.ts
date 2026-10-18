@@ -10,6 +10,7 @@ import {
   check,
   bucket,
   startedJob,
+  marketingContacts,
 } from "@/lib/marketing/server";
 import { marketingSelect, toMarketingProduct } from "@/lib/marketing/content";
 import { getSiteUrl } from "@/lib/site";
@@ -95,6 +96,7 @@ async function handle(request: Request, context: Context) {
           jobs: check(jobs.data, jobs.error),
           aiConfigured: Boolean(process.env.OPENAI_API_KEY),
           siteUrl: getSiteUrl()?.origin ?? "",
+          contacts: marketingContacts(),
         });
       }
       if (section === "drafts" && uuid(id) && action === "preview") {
@@ -300,7 +302,11 @@ async function handle(request: Request, context: Context) {
     const job = startedJob(check(started.data, started.error));
     try {
       const { generateCaptions } = await import("@/lib/marketing/ai");
-      const generated = await generateCaptions(draft, getSiteUrl()?.origin);
+      const generated = await generateCaptions(
+        draft,
+        getSiteUrl()?.origin,
+        marketingContacts(),
+      );
       const finished = await db.rpc("finish_marketing_job", {
         p_job: job.id,
         p_result: { variations: generated.variations },

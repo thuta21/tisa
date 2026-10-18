@@ -14,7 +14,11 @@ import {
   RefreshCw,
   Sparkles,
 } from "lucide-react";
-import { templateCaption } from "@/lib/marketing/content";
+import {
+  templateCaption,
+  templateCaptionOptions,
+  type MarketingContacts,
+} from "@/lib/marketing/content";
 import type {
   Asset,
   Draft,
@@ -82,6 +86,10 @@ export default function MarketingWorkspace({
     [caption, setCaption] = useState(""),
     [variations, setVariations] = useState<string[]>([]);
   const [replaceProduct, setReplaceProduct] = useState("");
+  const [contacts, setContacts] = useState<MarketingContacts>({});
+  const [variationSource, setVariationSource] = useState<"template" | "ai">(
+    "template",
+  );
   const requestVersion = useRef(0);
   const report = useCallback((error: unknown) => {
     setMessage((error as Error).message);
@@ -101,6 +109,7 @@ export default function MarketingWorkspace({
     setJobs(result.jobs);
     setAiConfigured(result.aiConfigured);
     setOrigin(result.siteUrl);
+    setContacts(result.contacts ?? {});
     setSetup(false);
   }, []);
   const open = useCallback(async (id: string) => {
@@ -318,7 +327,7 @@ export default function MarketingWorkspace({
               AI:{" "}
               {aiConfigured
                 ? "Connected · ready to generate"
-                : "Not connected · sales templates available"}
+                : "Optional · caption templates are ready"}
             </span>
             <span className="rounded-full border bg-white px-3 py-2">
               {runningJobs.length} running ·{" "}
@@ -823,6 +832,32 @@ export default function MarketingWorkspace({
                         </label>
                         <div className="my-4 flex flex-wrap gap-2">
                           <button
+                            className={`${button} bg-primary text-primary-foreground`}
+                            disabled={!!busy || draft.archived}
+                            onClick={() => {
+                              try {
+                                setVariations(
+                                  templateCaptionOptions(
+                                    draft.snapshot,
+                                    tone,
+                                    origin || undefined,
+                                    selectedImages,
+                                    contacts,
+                                  ),
+                                );
+                                setVariationSource("template");
+                                setFailure(false);
+                                setMessage(
+                                  "Three template captions are ready. Choose one to use it.",
+                                );
+                              } catch (error) {
+                                report(error);
+                              }
+                            }}
+                          >
+                            Generate 3 captions · no AI
+                          </button>
+                          <button
                             className={button}
                             disabled={!!busy || draft.archived}
                             onClick={() =>
@@ -832,6 +867,7 @@ export default function MarketingWorkspace({
                                   tone,
                                   origin || undefined,
                                   selectedImages,
+                                  contacts,
                                 ),
                               )
                             }
@@ -856,6 +892,7 @@ export default function MarketingWorkspace({
                                     { revision: saved.revision },
                                   );
                                   setVariations(result.variations);
+                                  setVariationSource("ai");
                                   await load();
                                   setMessage(
                                     "Three sales caption options are ready. Choose one to use it.",
@@ -875,8 +912,18 @@ export default function MarketingWorkspace({
                         <p className="mb-4 text-xs leading-5 text-muted-foreground">
                           {aiConfigured
                             ? "Generation saves your current changes first. Choose a suggestion to replace the caption."
-                            : "AI မချိတ်ဆက်ရသေးပါ။ Set up AI မှာ ချိတ်ဆက်နည်းကြည့်နိုင်ပြီး sales caption template ကို ယခုသုံးနိုင်ပါတယ်။"}
+                            : "Generate 3 captions က OpenAI မသုံးတဲ့ template စာသား ၃ မျိုး ထုတ်ပေးပါတယ်။ API key မလိုပါ။ ကြိုက်တဲ့စာသားကို ရွေးပြီးမှ caption ပြောင်းပါမယ်။ AI က နောက်မှ ချိတ်လည်းရပါတယ်။"}
                         </p>
+                        {(!contacts.facebook ||
+                          !contacts.whatsapp ||
+                          !contacts.phone) && (
+                          <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6">
+                            Caption မှာ Messenger၊ WhatsApp နဲ့ ဖုန်းကနေ
+                            စုံစမ်းရန် ပါပါတယ်။ Facebook Page link နဲ့
+                            ဆက်သွယ်ရန်နံပါတ်တွေ မပြည့်သေးလို့ ထည့်ထားတဲ့ contact
+                            details တွေပဲ ဖော်ပြပါမယ်။
+                          </p>
+                        )}
                         {aiSetupOpen && !aiConfigured && (
                           <section
                             role="status"
@@ -936,6 +983,13 @@ export default function MarketingWorkspace({
                           {caption.length}/5,000
                         </p>
                         <div className="mt-5 space-y-3">
+                          {variations.length > 0 && (
+                            <h3 className="font-semibold">
+                              {variationSource === "template"
+                                ? "Template caption options · no AI"
+                                : "AI caption options"}
+                            </h3>
+                          )}
                           {variations.map((text, i) => (
                             <div
                               key={i}
