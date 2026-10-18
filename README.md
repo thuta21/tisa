@@ -228,6 +228,9 @@ required in this version.
    configuration. Install dependencies on the target build platform so the
    correct FFmpeg binary is downloaded; never copy macOS `node_modules` to Linux.
    `next.config.ts` includes the binary only in the dedicated render function.
+   Production builds use `next build --webpack` to avoid Vercel rejecting
+   Turbopack's external-package symlink aliases. The FFmpeg tracing include points
+   to pnpm's real package store directory rather than the top-level symlink.
 5. On a **Vercel Preview deployment**, create a four-image draft, save, mark ready,
    and export the 12-second video. Confirm the generated function is below the
    platform's bundle limit, render finishes within its time limit, Storage upload

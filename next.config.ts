@@ -30,7 +30,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   serverExternalPackages: ["ffmpeg-static", "sharp"],
   outputFileTracingIncludes: {
-    "/api/admin/marketing/drafts/*/render": ["node_modules/ffmpeg-static/ffmpeg", "public/assets/tisa-logo.png"],
+    "/api/admin/marketing/drafts/*/render": [
+      "node_modules/.pnpm/ffmpeg-static@*/node_modules/ffmpeg-static/ffmpeg",
+      "public/assets/tisa-logo.png",
+    ],
   },
   images: {
     remotePatterns: [
