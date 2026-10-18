@@ -247,6 +247,17 @@ explicitly **Mark ready** before exporting. Optional AI suggestions never replac
 an edited caption until selected. AI receives descriptive product facts only,
 not original descriptions, customer details, payment data, prices or stock.
 
+Captions use a direct Burmese sales pitch: a fan-focused hook, selected kit and
+season details, and an invitation to enquire about ordering through Page
+Messenger. Prices, stock, discounts, quality and delivery promises are never
+invented. Existing saved captions stay as written; click **Use sales caption
+template** to replace one explicitly. AI generation saves current edits first,
+then presents three alternatives for review. With no server key, **Set up AI**
+opens setup instructions; the sales templates work immediately without a key.
+For local setup put `OPENAI_API_KEY` in ignored `.env.local`, restart the dev
+server and refresh Marketing. On Vercel, set it in the relevant environment and
+redeploy. Never use a `NEXT_PUBLIC_` prefix for a secret API key.
+
 The first image produces a **1080×1350 PNG**. Video requires 2–4 images and produces
 a silent **720×1280 H.264/yuv420p MP4 at 24fps**, 9 seconds for two/three images and
 12 seconds for four. Previews and exports use the same frame renderer. Product
@@ -287,7 +298,7 @@ suite and production build checks above. Hosted migrations, live OpenAI access,
 Vercel Preview performance and physical-device downloads need separate
 integration verification; mocked UI tests are not evidence of those checks.
 
-Implementation verification (2026-10-18): lint, TypeScript, all 75 Vitest tests
+Implementation verification (2026-10-18): lint, TypeScript, all 77 Vitest tests
 and the production build passed locally. The shared renderer produced a real
 1080×1350 PNG and a four-scene 720×1280, 24fps, 12-second H.264/yuv420p MP4.
 Local authenticated-service mocks were used for browser layout checks at 320px,
@@ -295,5 +306,7 @@ Local authenticated-service mocks were used for browser layout checks at 320px,
 traces contained FFmpeg only in the render route (81.1 MiB on macOS versus
 37.6 MiB for the marketing API); Linux/Vercel bundle size must be checked separately.
 The build's missing `metadataBase` warning reflects the unconfigured production
-site origin. Hosted migration, the Vercel four-image smoke test, live optional
+site origin. The hosted marketing migration was applied and its tables, RLS,
+Storage policies, RPC access and migration history verified on 2026-10-18.
+The Vercel four-image smoke test, live optional
 OpenAI, exact 390px QA and physical iOS/Android downloads remain rollout gates.

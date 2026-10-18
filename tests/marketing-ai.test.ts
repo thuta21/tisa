@@ -1,9 +1,11 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { generateCaptions } from "@/lib/marketing/ai";
+import { finishCaption } from "@/lib/marketing/content";
 import type { Draft } from "@/lib/marketing/types";
 const draft = {
   snapshot: {
     name: "Arsenal",
+    slug: "arsenal",
     team: "Arsenal",
     league: "Premier League",
     season: "2026/27",
@@ -57,12 +59,18 @@ describe("optional marketing AI boundary", () => {
         );
       }),
     );
-    expect(await generateCaptions(draft)).toEqual({
-      variations: ["Option one", "Option two", "Option three"],
+    expect(await generateCaptions(draft, "https://tisa.example")).toEqual({
+      variations: ["Option one", "Option two", "Option three"].map((body) =>
+        finishCaption(body, draft.snapshot, "https://tisa.example"),
+      ),
       inputTokens: 12,
       outputTokens: 20,
     });
     expect(request.store).toBe(false);
+    expect(JSON.parse(String(request.input)).mode).toBe("sales_inquiry");
+    expect(String(request.instructions)).toContain(
+      "persuasive Burmese sales captions",
+    );
     expect(String(request.input)).not.toMatch(/secret|123|IGNORE RULES/);
     expect(draft.caption).toBe("Edited text");
   });

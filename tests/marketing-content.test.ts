@@ -74,6 +74,16 @@ describe("marketing product content boundary", () => {
     );
     expect(() => productUrl(snapshot, "javascript:alert(1)")).toThrow();
   });
+  it("writes a clear sales enquiry caption using only the selected product facts", () => {
+    const caption = templateCaption(snapshot, "showcase", undefined, ["a"]);
+    expect(caption).toContain("Arsenal");
+    expect(caption).toContain("2026/27 Season • Home Kit • လက်တို");
+    expect(caption).toContain("Page Messenger");
+    expect(caption).not.toContain("Away Kit");
+    expect(caption).not.toMatch(
+      /Online ordering|collection preview|discount|100%|in stock/i,
+    );
+  });
   it("requires frozen, distinct images and two kits for comparison", () => {
     expect(() =>
       validateEdit({ snapshot }, ["unknown"], "showcase", "Test"),

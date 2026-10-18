@@ -157,7 +157,12 @@ export async function createDraft(
         product_id: productId,
         snapshot: frozen.snapshot,
         selected_images: frozen.snapshot.images.slice(0, 4).map((i) => i.id),
-        caption: templateCaption(frozen.snapshot, "showcase", origin),
+        caption: templateCaption(
+          frozen.snapshot,
+          "showcase",
+          origin,
+          frozen.snapshot.images.slice(0, 4).map((i) => i.id),
+        ),
       })
       .select("*")
       .single();

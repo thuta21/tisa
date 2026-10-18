@@ -66,15 +66,46 @@ export function templateCaption(
   snapshot: Snapshot,
   tone: Tone,
   origin?: string,
+  selectedImageIds?: string[],
 ) {
+  const images = selectedImageIds
+    ? snapshot.images.filter((image) => selectedImageIds.includes(image.id))
+    : snapshot.images;
+  const kits = [...new Set(images.map((image) => image.kit))]
+    .map((kit) => `${kit[0].toUpperCase()}${kit.slice(1)} Kit`)
+    .join(" / ");
   const intro =
     tone === "fan"
-      ? `${snapshot.team} ပရိသတ်တွေအတွက် ⚽\nဒီ kit ကို ဘယ်လိုမြင်လဲ?`
+      ? `${snapshot.team} ပရိသတ်ဆို ကိုယ့်အသင်းရဲ့ jersey လေးနဲ့ အားပေးလိုက်ပါ ⚽`
       : tone === "comparison"
-        ? `${snapshot.team} ရဲ့ kit designs တွေထဲမှာ ဘယ်ဒီဇိုင်းကို ရွေးမလဲ?`
-        : `${snapshot.name}\n${snapshot.season} collection ကို ကြည့်လိုက်ပါ။`;
+        ? `${snapshot.team} အတွက် ${kits} — ဘယ် kit လေးကို ဝတ်ပြီး အားပေးမလဲ? ⚽`
+        : `ကိုယ့်အသင်းကို အားပေးဖို့ ${snapshot.team} jersey လေး ရွေးလိုက်ပါ ⚽`;
+  const facts = [
+    snapshot.season && `${snapshot.season} Season`,
+    kits,
+    snapshot.sleeve === "long"
+      ? "လက်ရှည်"
+      : snapshot.sleeve === "short"
+        ? "လက်တို"
+        : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  return finishCaption(
+    `${intro}\n\n${snapshot.name}${facts ? `\n${facts}` : ""}`,
+    snapshot,
+    origin,
+  );
+}
+export const marketingCallToAction =
+  "မှာယူလိုပါက Page Messenger မှာ ကြိုက်တဲ့ team၊ kit နဲ့ size ကို ပို့ပြီး စျေးနှုန်းနဲ့ ရရှိနိုင်မှုကို စုံစမ်းနိုင်ပါတယ်။";
+export function finishCaption(
+  body: string,
+  snapshot: Snapshot,
+  origin?: string,
+) {
   const url = productUrl(snapshot, origin);
-  return `${intro}\n\nTISA collection preview ဖြစ်ပါတယ်။ Online ordering မဖွင့်သေးပါ။${url ? `\nCollection ကြည့်ရန်: ${url}` : ""}\n\n#TISA #FootballJersey`;
+  return `${body.trim()}\n\n${marketingCallToAction}${url ? `\nဒီဇိုင်းကြည့်ရန်: ${url}` : ""}\n\n#TISA #FootballJersey`;
 }
 export function validateEdit(
   draft: Pick<Draft, "snapshot">,
@@ -132,6 +163,6 @@ export function safeAiInput(draft: Draft) {
     sleeve,
     kits: [...new Set(selectedSources(draft).map((image) => image.kit))],
     tone: draft.tone,
-    mode: "collection_preview",
+    mode: "sales_inquiry",
   };
 }

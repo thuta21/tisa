@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Sparkles,
 } from "lucide-react";
-import { templateCaption, productUrl } from "@/lib/marketing/content";
+import { templateCaption } from "@/lib/marketing/content";
 import type {
   Asset,
   Draft,
@@ -74,6 +74,7 @@ export default function MarketingWorkspace({
     [setup, setSetup] = useState(false),
     [failure, setFailure] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false),
+    [aiSetupOpen, setAiSetupOpen] = useState(false),
     [origin, setOrigin] = useState(""),
     [step, setStep] = useState(1);
   const [selectedImages, setSelectedImages] = useState<string[]>([]),
@@ -150,7 +151,7 @@ export default function MarketingWorkspace({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-  async function run(label: string, operation: () => Promise<void>) {
+  async function run(label: string, operation: () => Promise<unknown>) {
     setBusy(label);
     setMessage("");
     setFailure(false);
@@ -196,6 +197,7 @@ export default function MarketingWorkspace({
     await open(saved.id);
     await load();
     setMessage(ready ? "Reviewed and ready to export." : "Draft saved.");
+    return saved;
   }
   async function download(assetId: string) {
     const result = await api(`assets/${assetId}`);
@@ -315,8 +317,8 @@ export default function MarketingWorkspace({
             <span className="rounded-full border bg-white px-3 py-2">
               AI:{" "}
               {aiConfigured
-                ? "Configured"
-                : "Templates available · no API key required"}
+                ? "Connected · ready to generate"
+                : "Not connected · sales templates available"}
             </span>
             <span className="rounded-full border bg-white px-3 py-2">
               {runningJobs.length} running ·{" "}
@@ -812,8 +814,8 @@ export default function MarketingWorkspace({
                             value={tone}
                             onChange={(e) => setTone(e.target.value as Tone)}
                           >
-                            <option value="showcase">Product showcase</option>
-                            <option value="fan">Fan question</option>
+                            <option value="showcase">Sales showcase</option>
+                            <option value="fan">Fan pitch</option>
                             <option value="comparison">
                               Kit comparison (two kits required)
                             </option>
@@ -829,37 +831,97 @@ export default function MarketingWorkspace({
                                   draft.snapshot,
                                   tone,
                                   origin || undefined,
+                                  selectedImages,
                                 ),
                               )
                             }
                           >
-                            Use caption template
+                            Use sales caption template
                           </button>
                           <button
                             className={button}
-                            disabled={
-                              !!busy || dirty || !aiConfigured || draft.archived
-                            }
-                            onClick={() =>
-                              run("Generating caption options", async () => {
-                                const result = await api(
-                                  `drafts/${draft.id}/ai`,
-                                  { revision: draft.revision },
-                                );
-                                setVariations(result.variations);
-                                await load();
-                              })
-                            }
+                            disabled={!!busy || draft.archived}
+                            onClick={() => {
+                              if (!aiConfigured) {
+                                setAiSetupOpen(true);
+                                return;
+                              }
+                              void run(
+                                "Generating sales captions",
+                                async () => {
+                                  const saved = dirty ? await save() : draft;
+                                  if (!saved) return;
+                                  const result = await api(
+                                    `drafts/${draft.id}/ai`,
+                                    { revision: saved.revision },
+                                  );
+                                  setVariations(result.variations);
+                                  await load();
+                                  setMessage(
+                                    "Three sales caption options are ready. Choose one to use it.",
+                                  );
+                                },
+                              );
+                            }}
                           >
                             <Sparkles size={16} />
-                            Generate with AI
+                            {!aiConfigured
+                              ? "Set up AI"
+                              : dirty
+                                ? "Save & generate with AI"
+                                : "Generate with AI"}
                           </button>
                         </div>
                         <p className="mb-4 text-xs leading-5 text-muted-foreground">
-                          Save your changes before AI generation. Templates work
-                          without an API key. AI suggestions never replace your
-                          caption until you select one.
+                          {aiConfigured
+                            ? "Generation saves your current changes first. Choose a suggestion to replace the caption."
+                            : "AI မချိတ်ဆက်ရသေးပါ။ Set up AI မှာ ချိတ်ဆက်နည်းကြည့်နိုင်ပြီး sales caption template ကို ယခုသုံးနိုင်ပါတယ်။"}
                         </p>
+                        {aiSetupOpen && !aiConfigured && (
+                          <section
+                            role="status"
+                            className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7"
+                          >
+                            <h3 className="font-semibold">
+                              Connect OpenAI for caption generation
+                            </h3>
+                            <p className="mt-2">
+                              Server မှာ OpenAI API key ထည့်ပြီးမှ AI caption
+                              ထုတ်နိုင်ပါမယ်။ Key ကို ဒီ editor သို့မဟုတ် chat
+                              ထဲ ပို့စရာမလိုပါ။
+                            </p>
+                            <ol className="mt-3 list-decimal space-y-2 pl-5">
+                              <li>
+                                <a
+                                  href="https://platform.openai.com/api-keys"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline"
+                                >
+                                  OpenAI dashboard
+                                </a>{" "}
+                                မှာ API key ယူပါ။
+                              </li>
+                              <li>
+                                Local အတွက် project ရဲ့ <code>.env.local</code>{" "}
+                                မှာ{" "}
+                                <code className="break-all">
+                                  OPENAI_API_KEY
+                                </code>{" "}
+                                ထည့်ပြီး dev server ကို restart လုပ်ပါ။
+                              </li>
+                              <li>
+                                Hosted site အတွက် Vercel Environment Variables
+                                မှာ key ထည့်ပြီး redeploy လုပ်ပါ။ ပြီးရင် ဒီ
+                                page ရဲ့ Refresh ကို နှိပ်ပါ။
+                              </li>
+                            </ol>
+                            <p className="mt-3 text-xs">
+                              AI သုံးမှသာ OpenAI usage ကျသင့်ပါမယ်။ Templates
+                              ကို key မလိုဘဲ သုံးနိုင်ပါတယ်။
+                            </p>
+                          </section>
+                        )}
                         <label className="block text-sm font-medium">
                           Burmese caption
                           <textarea
@@ -884,15 +946,7 @@ export default function MarketingWorkspace({
                               </p>
                               <button
                                 className={`${button} mt-3`}
-                                onClick={() => {
-                                  const url = productUrl(
-                                    draft.snapshot,
-                                    origin || undefined,
-                                  );
-                                  setCaption(
-                                    `${text}${url ? `\n\nCollection ကြည့်ရန်: ${url}` : ""}`,
-                                  );
-                                }}
+                                onClick={() => setCaption(text)}
                               >
                                 Use option {i + 1}
                               </button>
@@ -900,8 +954,8 @@ export default function MarketingWorkspace({
                           ))}
                         </div>
                         <p className="mt-5 text-sm text-muted-foreground">
-                          Design: TISA collection preview · English product text
-                          · original jersey photos · no price or sales CTA.
+                          Poster & video: TISA branding · English product
+                          details · original jersey photos.
                         </p>
                       </>
                     )}

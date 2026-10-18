@@ -36,9 +36,11 @@ const product: MarketingProduct = {
   ],
 };
 let current: Draft;
+let configured: boolean;
 let calls: { path: string; body: Record<string, unknown> | undefined }[];
 beforeEach(() => {
   calls = [];
+  configured = false;
   current = {
     id: "draft1",
     product_id: "p1",
@@ -64,8 +66,16 @@ beforeEach(() => {
         data = {
           drafts: [current],
           jobs: [],
-          aiConfigured: false,
+          aiConfigured: configured,
           siteUrl: "",
+        };
+      else if (path.endsWith("/drafts/draft1/ai"))
+        data = {
+          variations: [
+            "Sales option one",
+            "Sales option two",
+            "Sales option three",
+          ],
         };
       else if (path.endsWith("/drafts/draft1") && body) {
         current = { ...current, ...body, revision: current.revision + 1 };
@@ -104,10 +114,17 @@ describe("Marketing Studio without OpenAI credentials", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "Generate with AI",
+          name: "Set up AI",
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Set up AI" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Connect OpenAI for caption generation",
+      }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("OPENAI_API_KEY").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Burmese caption"), {
       target: { value: "Updated preview caption" },
     });
@@ -131,6 +148,39 @@ describe("Marketing Studio without OpenAI credentials", () => {
       calls.every((call) => call.path.startsWith("/api/admin/marketing/")),
     ).toBe(true);
     expect(calls.some((call) => call.path.includes("/ai"))).toBe(false);
+  });
+  it("saves unsaved changes before AI generation and keeps the caption until a suggestion is selected", async () => {
+    configured = true;
+    render(<MarketingWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Arsenal Test Jersey/ }),
+    );
+    await screen.findByRole("heading", { name: "Arsenal Test Jersey" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "2. Caption & design" }),
+    );
+    fireEvent.change(screen.getByLabelText("Burmese caption"), {
+      target: { value: "My edited sales caption" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save & generate with AI" }),
+    );
+    await screen.findByText("Sales option one");
+    expect(current.caption).toBe("My edited sales caption");
+    expect(
+      (screen.getByLabelText("Burmese caption") as HTMLTextAreaElement).value,
+    ).toBe("My edited sales caption");
+    const saveIndex = calls.findIndex(
+      (call) => call.path.endsWith("/drafts/draft1") && call.body,
+    );
+    const aiIndex = calls.findIndex((call) => call.path.endsWith("/ai"));
+    expect(saveIndex).toBeGreaterThan(-1);
+    expect(aiIndex).toBeGreaterThan(saveIndex);
+    expect(calls[aiIndex].body?.revision).toBe(current.revision);
+    fireEvent.click(screen.getByRole("button", { name: "Use option 1" }));
+    expect(
+      (screen.getByLabelText("Burmese caption") as HTMLTextAreaElement).value,
+    ).toBe("Sales option one");
   });
   it("shows a migration setup notice instead of breaking the admin workspace", async () => {
     vi.stubGlobal(

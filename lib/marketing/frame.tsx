@@ -118,7 +118,7 @@ export async function renderFrame(
               marginTop: 8,
             }}
           >
-            Online ordering is not open yet.
+            Find your team. Wear your colors.
           </span>
         </div>
       </div>
