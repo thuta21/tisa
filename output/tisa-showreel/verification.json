@@ -1,0 +1,31 @@
+{
+  "durationSeconds": 30,
+  "resolution": "1080x1920",
+  "frameRate": 30,
+  "decodedFrames": 900,
+  "videoCodec": "H.264 High / yuv420p",
+  "audioCodec": "AAC stereo / 48000Hz",
+  "sizeMiB": 15.01,
+  "qrVerified": "https://wa.me/971543831461",
+  "integratedLUFS": "-16.37",
+  "truePeakDBTP": "-1.39",
+  "logo": "assets/logo.png",
+  "logoPlacements": [
+    "header",
+    "transition wipes",
+    "message step",
+    "closing card"
+  ],
+  "addedTeams": [
+    "Arsenal",
+    "Liverpool",
+    "Manchester United"
+  ],
+  "premierLeagueCarousel": [
+    "Arsenal",
+    "Liverpool",
+    "Manchester United",
+    "Manchester City"
+  ],
+  "galleryTeams": 9
+}
