@@ -106,7 +106,11 @@ must also be verified for the environment actually serving customers.
 Final local verification: 25 test files / 118 tests passed; ESLint, TypeScript and
 the production build passed. `pnpm audit` reported zero vulnerabilities at every
 severity. These checks ran on the workstation's Node 25 runtime; CI targets Node
-24 LTS. Hosted migration application remains pending Supabase CLI login.
+24 LTS. On 24 October 2026, authenticated Supabase CLI deployment applied all six
+missing migrations to the configured `tisa-sportwears` hosted project: inventory
+alias sources, team logos, league logos, paused checkout, customer WhatsApp
+ordering and security hardening. No database reset or seed was run. Hosted Auth
+and deployment-level controls remain separate checks described above.
 
 Automated tests exercise default-grant cleanup, anonymous/customer/admin access,
 private order columns, quota evasion, stock-preserving size changes, request size
