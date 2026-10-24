@@ -21,22 +21,22 @@ export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
-  const destination = getSafeRedirectPath(nextPath);
+  const destination = getSafeRedirectPath(nextPath, "/account");
+  const callbackError = searchParams.get("error") ? "Your sign-in link could not be verified. Please log in or request a new link." : "";
   const notice = searchParams.get("reset") === "success" ? "Your password has been updated. Please log in." : "";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const supabase = createSupabaseBrowserClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (signInError) {
-      setError(signInError.message);
-      setLoading(false);
-      return;
-    }
-    router.replace(destination);
-    router.refresh();
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (signInError) throw signInError;
+      router.replace(destination);
+      router.refresh();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to log in. Please try again."); }
+    finally { setLoading(false); }
   };
 
   const handleGoogle = async () => {
@@ -61,7 +61,7 @@ export default function Login() {
       footer={
         <>
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary font-medium hover:underline">
+          <Link href={`/register?next=${encodeURIComponent(destination)}`} className="text-primary font-medium hover:underline">
             Create one
           </Link>
         </>
@@ -90,9 +90,9 @@ export default function Login() {
         </>
       )}
 
-      {error && (
+      {(error || callbackError) && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
+          {error || callbackError}
         </div>
       )}
       {notice && <div className="mb-4 rounded-lg bg-primary/10 p-3 text-sm text-foreground">{notice}</div>}

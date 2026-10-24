@@ -1,3 +1,4 @@
+import { readJson, RequestError, isUuid } from "@/lib/security/request";
 import { randomUUID } from "node:crypto";
 import { adminClient } from "@/lib/inventory/server";
 import {
@@ -25,10 +26,9 @@ const headers = {
 };
 const json = (value: unknown, status = 200) =>
   Response.json(value, { status, headers });
-const uuid = (value: unknown) =>
-  typeof value === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const uuid = isUuid;
 function errorResponse(error: unknown) {
+  if (error instanceof RequestError) return json({ error: error.message }, error.status);
   const e = error as { message?: string; code?: string };
   const missing =
     e.code === "42P01" || e.code === "PGRST205" || e.code === "PGRST202";
@@ -134,11 +134,7 @@ async function handle(request: Request, context: Context) {
       }
       return json({ error: "Not found" }, 404);
     }
-    if (Number(request.headers.get("content-length") ?? 0) > 32_768)
-      throw new Error("Request is too large.");
-    const raw = await request.text();
-    if (raw.length > 32_768) throw new Error("Request is too large.");
-    const body = JSON.parse(raw || "{}");
+    const body = await readJson(request, 32_768);
     if (section !== "drafts") return json({ error: "Not found" }, 404);
     if (request.method === "POST" && !id) {
       if (

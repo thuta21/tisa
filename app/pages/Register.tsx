@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { validateCustomerProfile } from "@/lib/customer-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +16,10 @@ import { googleAuthEnabled } from "@/lib/supabase/config";
 import { getPasswordValidationError } from "@/lib/auth/password";
 
 export default function Register() {
+  const router = useRouter();
+  const destination = getSafeRedirectPath(useSearchParams().get("next"), "/account");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,6 +34,8 @@ export default function Register() {
       setError("Passwords do not match");
       return;
     }
+    const profileError = validateCustomerProfile(name, phone);
+    if (profileError) { setError(profileError); return; }
     setLoading(true);
     try {
       const passwordError = getPasswordValidationError(password);
@@ -35,13 +44,14 @@ export default function Register() {
         return;
       }
       const supabase = createSupabaseBrowserClient();
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`, data: { display_name: name.trim(), phone: phone.trim() } },
       });
       if (signUpError) throw signUpError;
-      setConfirmationSent(true);
+      if (data.session) { router.replace(destination); router.refresh(); }
+      else setConfirmationSent(true);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Registration failed");
     } finally {
@@ -55,7 +65,7 @@ export default function Register() {
     const supabase = createSupabaseBrowserClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}` },
     });
     if (oauthError) {
       setError(oauthError.message);
@@ -71,7 +81,7 @@ export default function Register() {
         subtitle={`We sent a confirmation link to ${email}`}
       >
         <p className="text-center text-sm leading-6 text-muted-foreground">Open the confirmation link to activate your TISA account. You can then log in with your email and password.</p>
-        <Link href="/login" className="mt-6 flex h-12 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground">Go to log in</Link>
+        <Link href={`/login?next=${encodeURIComponent(destination)}`} className="mt-6 flex h-12 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground">Go to log in</Link>
       </AuthLayout>
     );
   }
@@ -84,7 +94,7 @@ export default function Register() {
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/login" className="text-primary font-medium hover:underline">
+          <Link href={`/login?next=${encodeURIComponent(destination)}`} className="text-primary font-medium hover:underline">
             Log in
           </Link>
         </>
@@ -120,6 +130,8 @@ export default function Register() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2"><Label htmlFor="name">Full name</Label><Input id="name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={100} required className="h-12" /></div>
+        <div className="space-y-2"><Label htmlFor="phone">Phone number</Label><Input id="phone" type="tel" autoComplete="tel" placeholder="+971 50 123 4567" value={phone} onChange={e => setPhone(e.target.value)} maxLength={25} required className="h-12" /></div>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">

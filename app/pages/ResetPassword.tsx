@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getPasswordValidationError } from "@/lib/auth/password";
 
 export default function ResetPassword() {
+  const router = useRouter();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +42,8 @@ export default function ResetPassword() {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
       await supabase.auth.signOut({ scope: "local" });
-      window.location.assign("/admin/login?reset=success");
+      router.replace("/login?reset=success");
+      router.refresh();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to reset password");
     } finally {

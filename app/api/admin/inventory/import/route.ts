@@ -1,3 +1,4 @@
+import { readJson, readUpload } from "@/lib/security/request";
 import { createHash } from 'node:crypto';
 import { adminClient,apiError,catalog } from '@/lib/inventory/server';
 import { MAX_FILE_BYTES,parseInventoryWorkbook } from '@/lib/inventory/workbook';
@@ -7,7 +8,7 @@ export async function POST(request:Request) {
   try {
     const db=await adminClient(request);
     if(Number(request.headers.get('content-length')??0)>MAX_FILE_BYTES+65536)throw new Error('Maximum file size is 10 MB.');
-    const form=await request.formData();const file=form.get('file');
+    const form=await readUpload(request);const file=form.get('file');
     if(!(file instanceof File)||!file.name.toLowerCase().endsWith('.xlsx')||file.size>MAX_FILE_BYTES)throw new Error('Choose an .xlsx file no larger than 10 MB.');
     const bytes=new Uint8Array(await file.arrayBuffer());
     const hash=createHash('sha256').update(bytes).digest('hex');
@@ -30,6 +31,6 @@ export async function POST(request:Request) {
   }catch(e){return apiError(e);}
 }
 export async function PUT(request:Request) {
-  try {const db=await adminClient(request);const {id,undo}=await request.json();const {data,error}=await db.rpc(undo?'reverse_inventory_import':'commit_inventory_import',{p_id:id});if(error)throw error;return Response.json(data);}
+  try {const db=await adminClient(request);const {id,undo}=await readJson(request);const {data,error}=await db.rpc(undo?'reverse_inventory_import':'commit_inventory_import',{p_id:id});if(error)throw error;return Response.json(data);}
   catch(e){return apiError(e);}
 }

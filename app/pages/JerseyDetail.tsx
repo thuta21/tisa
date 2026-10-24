@@ -9,17 +9,19 @@ import Footer from "@/components/jersey/Footer";
 import ImageLightbox from "@/components/jersey/ImageLightbox";
 import ProductCard from "@/components/jersey/ProductCard";
 import SizeGuideModal from "@/components/jersey/SizeGuideModal";
+import WhatsAppOrderForm from "@/components/jersey/WhatsAppOrderForm";
 import { kitOptions, type KitVariant } from "@/lib/jerseys";
 import { getCatalogPreviewKit, isCatalogKitPreviewAvailable, type CatalogJersey } from "@/lib/products";
 import { getJerseySleeve, sleeveOptions } from "@/lib/product-sleeves";
 
-export default function JerseyDetail({ jersey, alternatives, related = [] }: { jersey: CatalogJersey; alternatives: CatalogJersey[]; related?: CatalogJersey[] }) {
+export default function JerseyDetail({ jersey, alternatives, related = [], initialKit, initialSize = "" }: { jersey: CatalogJersey; alternatives: CatalogJersey[]; related?: CatalogJersey[]; initialKit?: KitVariant; initialSize?: string }) {
   const kits = kitOptions.filter((kit) => isCatalogKitPreviewAvailable(jersey, kit.id));
-  const [selectedKit, setSelectedKit] = useState<KitVariant | null>(getCatalogPreviewKit(jersey));
+  const [selectedKit, setSelectedKit] = useState<KitVariant | null>(getCatalogPreviewKit(jersey, initialKit));
   const [side, setSide] = useState<"front" | "back">("front");
   const [imageOpen, setImageOpen] = useState(false);
   const closeImage = useCallback(() => setImageOpen(false), []);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState(initialSize);
   const closeSizeGuide = useCallback(() => setSizeGuideOpen(false), [setSizeGuideOpen]);
   const activeKit = getCatalogPreviewKit(jersey, selectedKit);
   const kit = activeKit ? jersey.kits[activeKit] : null;
@@ -61,12 +63,12 @@ export default function JerseyDetail({ jersey, alternatives, related = [] }: { j
               )}
             </div>
             <section className="min-w-0 rounded-[24px] border border-border bg-white/85 p-4 sm:rounded-[28px] sm:p-8">
-              {kits.length > 0 ? <div className="mb-6"><h2 className="text-sm font-medium">Kit design</h2><div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Kit design">{kits.map((option) => <button key={option.id} type="button" aria-pressed={activeKit === option.id} onClick={() => { setSelectedKit(option.id); setSide("front"); }} className={`min-h-11 rounded-full border px-5 text-sm font-medium ${activeKit === option.id ? "border-primary bg-primary text-white" : "border-border bg-white hover:border-primary/40"}`}>{option.label}</button>)}</div></div> : <p className="mt-6 text-sm text-muted-foreground">Kit previews are currently unavailable.</p>}
+              {kits.length > 0 ? <div className="mb-6"><h2 className="text-sm font-medium">Kit design</h2><div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Kit design">{kits.map((option) => <button key={option.id} type="button" aria-pressed={activeKit === option.id} onClick={() => { setSelectedKit(option.id); setSelectedSize(""); setSide("front"); }} className={`min-h-11 rounded-full border px-5 text-sm font-medium ${activeKit === option.id ? "border-primary bg-primary text-white" : "border-border bg-white hover:border-primary/40"}`}>{option.label}</button>)}</div></div> : <p className="mt-6 text-sm text-muted-foreground">Kit previews are currently unavailable.</p>}
               {alternatives.length > 1 && <div className="mb-6"><h2 className="text-sm font-medium">Sleeve styles</h2><div className="mt-3 flex flex-wrap gap-2">{alternatives.map((item) => <Link key={item.slug} href={`/jersey/${item.slug}`} aria-current={item.slug === jersey.slug ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border px-5 text-sm font-medium ${item.slug === jersey.slug ? "border-primary text-primary" : "border-border hover:border-primary/40"}`}>{sleeveOptions.find((option) => option.id === getJerseySleeve(item))?.label}</Link>)}</div></div>}
               {jersey.description && <p className="mt-5 text-base leading-7 text-muted-foreground">{jersey.description}</p>}
               <dl className="mt-7 grid grid-cols-2 gap-5 border-y border-border py-5"><div><dt className="text-xs text-muted-foreground">Team</dt><dd className="mt-1 text-sm font-medium">{jersey.team}</dd></div>{jersey.season && <div><dt className="text-xs text-muted-foreground">Season</dt><dd className="mt-1 text-sm font-medium">{jersey.season}</dd></div>}<div><dt className="text-xs text-muted-foreground">Sleeve</dt><dd className="mt-1 text-sm font-medium">{sleeveOptions.find((option) => option.id === sleeve)?.label}</dd></div>{jersey.product.fabric && <div><dt className="text-xs text-muted-foreground">Fabric</dt><dd className="mt-1 text-sm font-medium">{jersey.product.fabric}</dd></div>}</dl>
               <button type="button" onClick={() => setSizeGuideOpen(true)} className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 sm:w-auto rounded-full border border-border px-5 text-sm font-medium hover:border-primary/40"><Ruler size={18} /> View size guide</button>
-              <div className="mt-7 rounded-2xl bg-primary/5 p-5"><h2 className="text-sm font-semibold text-primary">Collection preview</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Online ordering is not open yet. Checkout, customization orders and payments will be available after launch.</p></div>
+              <WhatsAppOrderForm key={activeKit} kit={kit} kitId={activeKit} productSlug={jersey.slug} size={selectedSize} onSizeChange={setSelectedSize} />
             </section>
           </div>
           {related.length > 0 && <section aria-labelledby="related-heading" className="mt-14 border-t border-border pt-10">

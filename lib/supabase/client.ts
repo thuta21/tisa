@@ -1,9 +1,9 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { supabasePublishableKey, supabaseUrl, supabaseCookieOptions } from "@/lib/supabase/config";
 
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(supabaseUrl, supabasePublishableKey);
+  return createBrowserClient(supabaseUrl, supabasePublishableKey, { cookieOptions: supabaseCookieOptions });
 }
 

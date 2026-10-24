@@ -441,8 +441,8 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
             <p className="mt-2 text-sm font-medium">{kitOptions.find((kit) => kit.id === activeKit)?.label ?? "Unavailable"}</p>
           </div>
           <div className="col-span-2 border-t border-black/[0.06] pt-5 lg:mt-7">
-            <p className="inline-flex items-center gap-2 text-xs font-semibold text-[#E10714]"><Clock3 size={15} /> Collection preview</p>
-            <p className="mt-2 text-xs leading-6 text-neutral-500">Online ordering is not open yet.</p>
+            <p className="inline-flex items-center gap-2 text-xs font-semibold text-[#E10714]"><Clock3 size={15} /> Order on WhatsApp</p>
+            <p className="mt-2 text-xs leading-6 text-neutral-500">Choose your kit and size on the detail page.</p>
           </div>
         </motion.div>
 
@@ -512,7 +512,7 @@ export default function FeaturedJerseyShowcase({ jerseys, catalogTeams, catalogL
             </div>
           </div>
           <h1 className="mt-5 max-w-md text-3xl font-semibold leading-[1.04] tracking-[-0.04em] sm:text-4xl lg:text-[38px]">{selectedJersey.name}</h1>
-          <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} shirt, collection preview.`}</p>
+          <p className="mt-3 max-w-sm text-sm font-normal leading-6 text-neutral-600">{selectedJersey.description || `${selectedJersey.team}'s ${getSeasonLabel(selectedJersey)} football jersey. Choose your size and order on WhatsApp.`}</p>
 
           <div className="mt-6 border-t border-black/[0.06] pt-5">
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">Choose sleeve</p>

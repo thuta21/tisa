@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/security/request";
 import { adminClient,apiError,catalog } from '@/lib/inventory/server';
 export async function GET(request:Request) {
   try {
@@ -7,6 +8,6 @@ export async function GET(request:Request) {
   }catch(e){return apiError(e);}
 }
 export async function POST(request:Request) {
-  try {const db=await adminClient(request);const body=await request.json();const {data,error}=await db.rpc('adjust_inventory',{p_request:body});if(error)throw error;return Response.json(data);}
+  try {const db=await adminClient(request);const body=await readJson(request);const {data,error}=await db.rpc('adjust_inventory',{p_request:body});if(error)throw error;return Response.json(data);}
   catch(e){return apiError(e);}
 }

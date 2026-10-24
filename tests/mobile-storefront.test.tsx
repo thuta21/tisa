@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import ResponsiveSizeChart from "@/components/jersey/ResponsiveSizeChart";
 import Navbar from "@/components/jersey/Navbar";
 vi.mock("next/navigation", () => ({ usePathname: () => "/shop" }));
+vi.mock("@/lib/AuthContext", () => ({ useAuth: () => ({ user: null, isLoadingAuth: false }), useOptionalAuth: () => ({ user: null, isLoadingAuth: false }) }));
+
 afterEach(cleanup);
 
 describe("mobile storefront controls", () => {

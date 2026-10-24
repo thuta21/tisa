@@ -29,8 +29,10 @@ describe("public preview product lookups", () => {
     query.maybeSingle.mockResolvedValue({ data: null, error: { message: "unavailable" } });
     await expect(getPreviewProduct("arsenal")).rejects.toThrow("could not be loaded");
   });
-  it("does not fetch private operational or purchasing fields for previews", () => {
+  it("loads size availability and prices without private operational fields", () => {
     expect(previewProductSelect).not.toContain("*");
-    expect(previewProductSelect).not.toMatch(/inventory|price|quantity|reserved/);
+    expect(previewProductSelect).toContain("inventory(id,variant_id,size,quantity,reserved,is_active)");
+    expect(previewProductSelect).toContain("price");
+    expect(previewProductSelect).not.toMatch(/admin_note|cost_price|supplier/);
   });
 });

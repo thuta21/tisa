@@ -1,10 +1,17 @@
 import {describe,it,expect} from 'vitest';
 import * as XLSX from 'xlsx';
-import {parseInventoryWorkbook,makeWorkbook} from '../lib/inventory/workbook';
+import {parseInventoryWorkbook,makeWorkbook,checkWorkbookSize} from '../lib/inventory/workbook';
 import {matchInventory,identify} from '../lib/inventory/matching';
 import type {Product} from '../lib/inventory/types';
 const workbook=(rows:unknown[][])=>{const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet(rows),'Stock');return XLSX.write(book,{type:'buffer',bookType:'xlsx'});};
 describe('inventory workbook',()=>{
+  it('rejects forged ZIP sizes before parsing spreadsheet content',()=>{
+    const bytes = new Uint8Array(workbook([['Item Name','S','M','L','XL','XXL','Balance Qty'],['Spain Home',1,1,1,1,1,5]]));
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for(let i=0;i+46<bytes.length;i++) if(view.getUint32(i,true)===0x02014b50){ view.setUint32(i+24,0,true); break; }
+    expect(()=>checkWorkbookSize(bytes)).toThrow('valid');
+    expect(()=>checkWorkbookSize(new Uint8Array([1,2,3]))).toThrow('valid');
+  });
   it('reads balance only and normalizes XXL',()=>{
     const result=parseInventoryWorkbook(workbook([['Stock Balance'],['Item Name','S','M','L','XL','XXL','Balance Qty'],['Real Madrid Home',1,2,3,4,5,15]]));
     expect(result.issues).toEqual([]);expect(result.rows).toHaveLength(5);expect(result.rows[4]).toMatchObject({size:'2XL',quantity:5});

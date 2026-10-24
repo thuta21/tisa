@@ -82,7 +82,7 @@ export default function Home({ jerseys, catalogTeams, catalogLeagues }: {
               Find the kit that
               <span className="block text-white/35">feels like yours.</span>
             </h2>
-            <p className="mt-5 max-w-xl text-base font-normal leading-7 text-white/62">Explore the teams, kit designs and sleeve styles in our collection preview.</p>
+            <p className="mt-5 max-w-xl text-base font-normal leading-7 text-white/62">Explore your teams, find your kit and choose your size. Order directly with TISA on WhatsApp.</p>
           </motion.div>
 
           <motion.div
@@ -119,7 +119,7 @@ export default function Home({ jerseys, catalogTeams, catalogLeagues }: {
           {[
             { icon: BadgeCheck, title: "Choose your kit", text: "Explore Home, Away and Third kit designs." },
             { icon: Ruler, title: "Confirm your fit", text: "Compare a shirt you own with our measurement guide." },
-            { icon: Eye, title: "A first look", text: "Browse the collection while we prepare for launch. Ordering is not open yet." },
+            { icon: Eye, title: "Order with TISA", text: "Choose a jersey and size, log in and send your order enquiry to our team on WhatsApp." },
           ].map((item, index) => (
             <motion.div
               key={item.title}

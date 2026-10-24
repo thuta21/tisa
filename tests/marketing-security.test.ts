@@ -35,6 +35,7 @@ describe("marketing API access control", () => {
     const response = await POST(
       new Request("http://localhost/api/admin/marketing/drafts", {
         method: "POST",
+        headers: { origin: "http://localhost", "Content-Type": "application/json" },
         body: "{}",
       }),
       { params: Promise.resolve({ path: ["drafts", id, "ai"] }) },
@@ -65,7 +66,7 @@ describe("marketing API access control", () => {
         await render(
           new Request(
             `http://localhost/api/admin/marketing/drafts/${id}/render`,
-            { method: "POST", body: "{}" },
+            { method: "POST", headers: { origin: "http://localhost", "Content-Type": "application/json" }, body: "{}" },
           ),
           { params: Promise.resolve({ id }) },
         )

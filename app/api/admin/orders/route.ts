@@ -1,9 +1,10 @@
+import { readJson } from "@/lib/security/request";
 import { adminClient, apiError } from "@/lib/inventory/server";
 
 export async function POST(request: Request) {
   try {
     const db = await adminClient(request);
-    const body = await request.json();
+    const body = await readJson(request);
     let call;
     if (body.action === "save") call = db.rpc("save_admin_order", { p_order: body.order, p_items: body.items });
     else if (body.action === "status") call = db.rpc("update_admin_order_status", { p_order_id: body.orderId, p_status: body.status, p_note: body.note });

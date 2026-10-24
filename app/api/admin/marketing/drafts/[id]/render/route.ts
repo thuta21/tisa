@@ -1,3 +1,4 @@
+import { readJson, requireUuid, RequestError } from "@/lib/security/request";
 import { adminClient } from "@/lib/inventory/server";
 import {
   activeProduct,
@@ -29,10 +30,8 @@ export async function POST(
   let job: Job | undefined, uploaded: string | undefined;
   try {
     const { id } = await params;
-    const raw = await request.text();
-    if (raw.length > 4096) throw new Error("Request is too large.");
-    const body = JSON.parse(raw),
-      kind = body.kind;
+    requireUuid(id);
+    const body = await readJson(request, 4096), kind = body.kind;
     if (kind !== "poster" && kind !== "video")
       throw new Error("Choose poster or video export.");
     const draft = await getDraft(db, id);
@@ -112,7 +111,7 @@ export async function POST(
     const e = error as { code?: string; message: string };
     return Response.json(
       { error: e.message },
-      { status: e.code === "40001" || e.code === "23505" ? 409 : 400, headers },
+      { status: error instanceof RequestError ? error.status : e.code === "40001" || e.code === "23505" ? 409 : 400, headers },
     );
   }
 }

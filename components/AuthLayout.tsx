@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
 export default function AuthLayout({
@@ -17,6 +18,7 @@ export default function AuthLayout({
   return (
     <main id="main-content" className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">
+        <Link href="/" className="mb-8 inline-flex min-h-11 items-center text-sm font-medium text-primary">← Back to TISA</Link>
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
             <Icon className="w-7 h-7 text-primary-foreground" aria-hidden="true" />

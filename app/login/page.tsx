@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import LaunchNotice from "@/components/LaunchNotice";
+import { Suspense } from "react";
+import Login from "@/app/pages/Login";
 
-export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
-export default LaunchNotice;
+export const metadata: Metadata = { title: "Customer Login | TISA", robots: { index: false, follow: false } };
+export default function Page() { return <Suspense fallback={<p className="p-8">Loading login…</p>}><Login /></Suspense>; }

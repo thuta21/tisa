@@ -20,7 +20,7 @@ export default function Footer() {
             <span className="text-sm font-semibold tracking-[0.18em] text-primary">TISA</span>
           </Link>
           <p className="mt-3 text-sm leading-6 text-muted-foreground max-w-md">
-            A first look at the TISA collection. Online ordering is not open yet.
+            Football jerseys for your team. Choose your kit and size, then order with TISA on WhatsApp.
           </p>
           <p className="mt-3 text-xs text-muted-foreground">© 2026 TISA</p>
         </div>

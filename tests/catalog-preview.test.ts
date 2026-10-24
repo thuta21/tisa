@@ -21,6 +21,8 @@ vi.mock("framer-motion", async (importOriginal) => ({
   useReducedMotion: () => true,
 }));
 
+vi.mock("@/lib/AuthContext", () => ({ useAuth: () => ({ user: null, isLoadingAuth: false }), useOptionalAuth: () => ({ user: null, isLoadingAuth: false }) }));
+
 afterEach(cleanup);
 
 function variant(kit: CatalogVariant["kit"], overrides: Partial<CatalogVariant> = {}): CatalogVariant {
@@ -138,6 +140,27 @@ describe("catalog preview availability", () => {
 });
 
 describe("kit selectors with admin-visible catalog data", () => {
+  it("keeps the chosen kit and size in the customer login return link", () => {
+    const jersey = productToCatalogJersey(product([variant("home"), variant("away")]));
+    render(createElement(JerseyDetail, { jersey, alternatives: [jersey], initialKit: "away", initialSize: "M" }));
+    expect(screen.getByRole("button", { name: "Away Kit" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "M" }).getAttribute("aria-pressed")).toBe("true");
+    const link = new URL(screen.getByRole("link", { name: "Log in to Order Now" }).getAttribute("href")!, "https://tisa.test");
+    expect(link.searchParams.get("next")).toBe("/jersey/arsenal-short?kit=away&size=M");
+  });
+
+  it("disables sold-out sizes and hides sizes removed by admin", () => {
+    const jersey = productToCatalogJersey(product([variant("home", { inventory: [
+      { id: "1", variant_id: "home", size: "S", quantity: 0, reserved: 0, is_active: true },
+      { id: "2", variant_id: "home", size: "M", quantity: 2, reserved: 0, is_active: true },
+      { id: "3", variant_id: "home", size: "XL", quantity: 5, reserved: 0, is_active: false },
+    ] })]));
+    render(createElement(JerseyDetail, { jersey, alternatives: [jersey] }));
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "S — out of stock" }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "M" }).disabled).toBe(false);
+    expect(screen.queryByRole("button", { name: "XL" })).toBeNull();
+  });
+
   it("restarts image loading when switching front and back views", async () => {
     const jersey = productToCatalogJersey(product([variant("home")]));
     render(createElement(JerseyDetail, { jersey, alternatives: [jersey] }));

@@ -13,6 +13,11 @@ describe("safe auth redirects", () => {
     expect(getSafeRedirectPath("/\\evil.example")).toBe("/");
     expect(getSafeAdminRedirectPath("/account")).toBe("/admin");
   });
+
+  it("avoids redirecting signed-in admins back to the login page", () => {
+    expect(getSafeAdminRedirectPath("/admin/login")).toBe("/admin");
+    expect(getSafeAdminRedirectPath("/admin/login/?next=/admin/orders")).toBe("/admin");
+  });
 });
 
 describe("password validation", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -21,16 +22,21 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState<Error | null>(null);
 
   const checkUserAuth = async () => {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error } = await supabase.auth.getUser();
-    setUser(data.user);
-    setAuthError(error);
-    setIsLoadingAuth(false);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.getUser();
+      setUser(data.user);
+      setAuthError(error);
+    } catch (error) {
+      setUser(null);
+      setAuthError(error instanceof Error ? error : new Error("Unable to check your session."));
+    } finally { setIsLoadingAuth(false); }
   };
 
   useEffect(() => {
@@ -63,12 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
       },
       navigateToLogin: () => {
-        window.location.href = "/login";
+        router.push("/login");
       },
       checkUserAuth,
       checkAppState: async () => undefined,
     }),
-    [authError, isLoadingAuth, user]
+    [authError, isLoadingAuth, user, router]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -82,4 +88,9 @@ export function useAuth() {
   }
 
   return context;
+}
+
+// Error and loading shells can render outside the root layout during prerendering.
+export function useOptionalAuth() {
+  return useContext(AuthContext);
 }

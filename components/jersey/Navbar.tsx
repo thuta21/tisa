@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, UserRound } from "lucide-react";
+import { useOptionalAuth } from "@/lib/AuthContext";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -13,6 +14,9 @@ const navItems = [
 ];
 
 export default function Navbar() {
+  const auth = useOptionalAuth();
+  const user = auth?.user;
+  const isLoadingAuth = auth?.isLoadingAuth ?? true;
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLElement>(null);
@@ -55,7 +59,7 @@ export default function Navbar() {
           {navItems.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={`inline-flex min-h-11 items-center transition-colors ${isActive(item.href) ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>{item.label}</Link>)}
         </nav>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Link href="/launch" aria-label="Collection preview" className="inline-flex min-h-11 items-center rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary"><span className="hidden min-[380px]:inline">Collection&nbsp;</span>preview</Link>
+          <Link href={user ? "/account" : `/login?next=${encodeURIComponent(pathname)}`} aria-label={user ? "My account" : "Customer login"} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary"><UserRound size={16} /><span>{isLoadingAuth ? "Account" : user ? "My account" : "Log in"}</span></Link>
           <button ref={toggle} type="button" onClick={() => setOpen(!open)} aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="mobile-navigation" className="grid size-11 place-items-center rounded-full border border-border md:hidden">{open ? <X size={18} /> : <Menu size={18} />}</button>
         </div>
       </div>

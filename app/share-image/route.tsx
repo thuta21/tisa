@@ -5,7 +5,7 @@ export function GET() {
     <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: "100%", height: "100%", padding: "80px", background: "#111111", color: "white" }}>
       <div style={{ display: "flex", fontSize: 28, color: "#ff4550", letterSpacing: "8px" }}>TISA</div>
       <div style={{ display: "flex", marginTop: 32, fontSize: 78, fontWeight: 700 }}>Find the kit that feels like yours.</div>
-      <div style={{ display: "flex", marginTop: 36, fontSize: 26, color: "#bbbbbb" }}>Football jersey collection preview</div>
+      <div style={{ display: "flex", marginTop: 36, fontSize: 26, color: "#bbbbbb" }}>Football jerseys · Find your size · Order on WhatsApp</div>
     </div>, size,
   );
 }

@@ -1,3 +1,4 @@
+import { readJson } from "@/lib/security/request";
 import { adminClient, apiError } from "@/lib/inventory/server";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const db = await adminClient(request);
-    const body = await request.json() as {
+    const body = await readJson(request) as {
       action?: "prepare" | "clean" | "restore";
       id?: string;
       sha256?: string;

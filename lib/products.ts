@@ -58,12 +58,14 @@ export type CatalogProduct = {
 };
 
 export type CatalogJerseyKit = JerseyKit & {
+  price: number;
   previewAvailable: boolean;
   variantId?: string;
   variantName?: string;
   sku?: string | null;
   imageBack?: string;
   stock: number;
+  sizeOptions: string[];
   sizes: string[];
   stockBySize: Record<string, number>;
 };
@@ -178,6 +180,7 @@ export function productToCatalogJersey(product: CatalogProduct): CatalogJersey {
       variantName: variant?.name,
       sku: variant?.sku,
       stock,
+      sizeOptions: variant?.available ? (variant.inventory ?? []).filter(isInventoryActive).map(row => row.size) : [],
       sizes: getVariantAvailableSizes(variant),
       stockBySize,
     };

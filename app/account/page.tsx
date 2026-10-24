@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import LaunchNotice from "@/components/LaunchNotice";
+import CustomerAccount from "@/app/pages/CustomerAccount";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Ordering Unavailable | TISA", robots: { index: false, follow: true } };
-export default LaunchNotice;
+export const metadata: Metadata = { title: "My Account | TISA", robots: { index: false, follow: false } };
+export default async function Page() {
+  const db = await createSupabaseServerClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) redirect("/login?next=/account");
+  return <CustomerAccount />;
+}

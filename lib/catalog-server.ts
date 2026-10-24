@@ -2,9 +2,9 @@ import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { productToCatalogJersey, type CatalogProduct, type CatalogTeam, type CatalogLeague } from "@/lib/products";
 
-// Preview pages need images and descriptive fields, not size-level inventory.
-export const previewProductSelect = "id,slug,name,team,category,collection,description,season,fabric,country_colors,featured,status,sleeve,leagues(id,name),teams(id,name,slug,logo_path),seasons(id,name),product_variants(id,product_id,kit,name,image_front_path,image_back_path,available)";
-const toJersey = (row: unknown) => productToCatalogJersey({ ...(row as CatalogProduct), base_price: 0 });
+// Public catalog fields include current size availability for WhatsApp ordering.
+export const previewProductSelect = "id,slug,name,team,category,collection,description,base_price,season,fabric,country_colors,featured,status,sleeve,leagues(id,name),teams(id,name,slug,logo_path),seasons(id,name),product_variants(id,product_id,kit,name,sku,price,image_front_path,image_back_path,available,inventory(id,variant_id,size,quantity,reserved,is_active))";
+const toJersey = (row: unknown) => productToCatalogJersey(row as CatalogProduct);
 
 export const getPreviewCatalog = cache(async () => {
   const db = await createSupabaseServerClient();

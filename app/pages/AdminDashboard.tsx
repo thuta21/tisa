@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import AdminDialog from "@/components/admin/AdminDialog";
+import SearchSelectField from "@/components/admin/SearchSelectField";
 import AdminNavigation from "@/components/admin/AdminNavigation";
 import InventoryWorkspace from "@/components/admin/InventoryWorkspace";
 import ProductExcelImport from "@/components/admin/ProductExcelImport";
@@ -48,7 +50,6 @@ import LeagueLogo from "@/components/jersey/LeagueLogo";
 import { getDefaultLeagueLogo, leagueLogoBucket } from "@/lib/league-logos";
 
 
-const fontSelect = "id,name,slug,category,preview_text,price,created_at,updated_at";
 
 async function adminOrderAction(body: Record<string, unknown>) {
   const response = await fetch("/api/admin/orders", {
@@ -385,7 +386,6 @@ const deliveryRegions = {
   ],
 } as const;
 
-const defaultSizes = "S, M, L, XL, 2XL";
 const settingSections: {
   id: SettingSection;
   label: string;
@@ -778,7 +778,7 @@ function getOrderSubtotal(items: OrderItemFormState[], pricing: AddOnPricing) {
   return items.reduce((sum, item) => sum + getOrderItemTotal(item, pricing), 0);
 }
 
-function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
+export function createEmptyProductForm(sizes: DbJerseySize[] = []): ProductFormState {
   return {
     slug: "",
     name: "",
@@ -894,15 +894,19 @@ export default function AdminDashboard() {
 
   const loadAdminData = useCallback(async () => {
     setLoadingData(true);
-    setActionMessage("");
-    setActionIsError(false);
     const supabase = createSupabaseBrowserClient();
 
     const [ordersResult, productsResult, paymentsResult, leaguesResult, teamsResult, seasonsResult, sizesResult, paymentMethodsResult, pricingResult] = await Promise.all([
-      supabase
-        .from("orders")
-        .select("*, order_items(*), payment_proofs(*), order_status_history(*, profiles(display_name))")
-        .order("created_at", { ascending: false }),
+      (async () => {
+        const rows: DbOrder[] = [];
+        for (let offset = 0; ; offset += 500) {
+          const { data, error } = await supabase.rpc("list_admin_orders", { p_offset: offset, p_limit: 500 });
+          if (error) return { data: null, error };
+          const page = (data ?? []) as DbOrder[];
+          rows.push(...page);
+          if (page.length < 500) return { data: rows, error: null };
+        }
+      })(),
       supabase
         .from("products")
         .select("*, leagues(id, name), teams(id, name), seasons(id, name), product_variants(*, inventory(*))")
@@ -919,11 +923,7 @@ export default function AdminDashboard() {
       supabase.from("commerce_settings").select("customization_price, arm_badge_price").eq("id", true).maybeSingle(),
     ]);
 
-    const fontsResult = await supabase
-      .from("fonts")
-      .select(fontSelect)
-      .order("category", { ascending: true })
-      .order("name", { ascending: true });
+    const fontsResult = await supabase.rpc("list_admin_fonts");
 
     const firstError =
       ordersResult.error ??
@@ -934,32 +934,23 @@ export default function AdminDashboard() {
       seasonsResult.error ??
       sizesResult.error ??
       paymentMethodsResult.error ??
-      pricingResult.error;
+      pricingResult.error ?? fontsResult.error;
     if (firstError) {
-      setActionMessage(firstError.message);
+      setActionMessage(`Some admin data could not be loaded: ${firstError.message}`);
       setActionIsError(true);
-    } else {
-      const loadedPaymentMethods = (paymentMethodsResult.data ?? []) as DbPaymentMethod[];
-      const paymentMethodNames = new Map(loadedPaymentMethods.map((method) => [method.slug, method.name]));
-      setOrders(((ordersResult.data ?? []) as DbOrder[]).map((order) => ({
-        ...order,
-        payment_method_name: paymentMethodNames.get(order.payment_method),
-      })));
-      setProducts((productsResult.data ?? []) as DbProduct[]);
-      setPaymentProofs((paymentsResult.data ?? []) as DbPaymentProof[]);
-      setLeagues((leaguesResult.data ?? []) as DbLeague[]);
-      setTeams((teamsResult.data ?? []) as DbTeam[]);
-      setSeasons((seasonsResult.data ?? []) as DbSeason[]);
-      setSizes((sizesResult.data ?? []) as DbJerseySize[]);
-      setPaymentMethods(loadedPaymentMethods);
-      setFontsList((fontsResult.data ?? []) as DbFont[]);
-      if (pricingResult.data) {
-        setAddOnPricing({
-          customization: pricingResult.data.customization_price,
-          armBadge: pricingResult.data.arm_badge_price,
-        });
-      }
     }
+    const loadedPaymentMethods = (paymentMethodsResult.data ?? []) as DbPaymentMethod[];
+    const paymentMethodNames = new Map(loadedPaymentMethods.map(method => [method.slug, method.name]));
+    if (!ordersResult.error) setOrders(((ordersResult.data ?? []) as DbOrder[]).map(order => ({ ...order, payment_method_name: paymentMethodNames.get(order.payment_method) })));
+    if (!productsResult.error) setProducts((productsResult.data ?? []) as DbProduct[]);
+    if (!paymentsResult.error) setPaymentProofs((paymentsResult.data ?? []) as DbPaymentProof[]);
+    if (!leaguesResult.error) setLeagues((leaguesResult.data ?? []) as DbLeague[]);
+    if (!teamsResult.error) setTeams((teamsResult.data ?? []) as DbTeam[]);
+    if (!seasonsResult.error) setSeasons((seasonsResult.data ?? []) as DbSeason[]);
+    if (!sizesResult.error) setSizes((sizesResult.data ?? []) as DbJerseySize[]);
+    if (!paymentMethodsResult.error) setPaymentMethods(loadedPaymentMethods);
+    if (!fontsResult.error) setFontsList((fontsResult.data ?? []) as DbFont[]);
+    if (!pricingResult.error && pricingResult.data) setAddOnPricing({ customization: pricingResult.data.customization_price, armBadge: pricingResult.data.arm_badge_price });
     setLoadingData(false);
   }, []);
 
@@ -1009,8 +1000,12 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) { setActionMessage("Unable to log out. Please try again."); setActionIsError(true); return; }
+    setOrders([]);
+    setPaymentProofs([]);
     router.replace("/admin/login");
+    router.refresh();
   };
 
   const updateOrderStatus = async (order: DbOrder, status: OrderStatus) => {
@@ -1048,7 +1043,11 @@ export default function AdminDashboard() {
   const saveOrder = async (form: OrderFormState) => {
     setActionMessage("");
     setActionIsError(false);
-    const items = form.items.filter((item) => item.product_name.trim() && item.size.trim() && toNumber(item.quantity, 1) > 0);
+    const items = form.items;
+    if (items.some(item => !item.product_name.trim() || !item.size.trim() || !Number.isSafeInteger(Number(item.quantity)) || Number(item.quantity) < 1 || !Number.isSafeInteger(Number(item.unit_price)) || Number(item.unit_price) < 0 || (item.product_id && !item.variant_id))) {
+      throw new Error("Complete every order item: choose a kit and size, a whole quantity of at least 1, and a nonnegative whole AED price.");
+    }
+    if (!Number.isSafeInteger(Number(form.delivery_fee)) || Number(form.delivery_fee) < 0) throw new Error("Delivery fee must be a nonnegative whole AED amount.");
     const subtotal = getOrderSubtotal(items, addOnPricing);
     const deliveryFee = toNumber(form.delivery_fee);
     const total = subtotal + deliveryFee;
@@ -1056,13 +1055,13 @@ export default function AdminDashboard() {
     if (!form.customer_name.trim() || !form.customer_phone.trim() || !form.country.trim() || !form.region.trim() || !form.delivery_address.trim()) {
       setActionMessage("Customer name, phone, country, region, and delivery address are required.");
       setActionIsError(true);
-      return;
+      throw new Error("Complete the required customer details and add at least one valid order item.");
     }
 
     if (!items.length) {
       setActionMessage("Add at least one order item.");
       setActionIsError(true);
-      return;
+      throw new Error("Complete the required customer details and add at least one valid order item.");
     }
 
     const orderPayload = {
@@ -1113,6 +1112,7 @@ export default function AdminDashboard() {
       const message = (error as Error).message;
       setActionMessage(message.includes("Insufficient stock") ? "Insufficient stock for one or more order items." : message);
       setActionIsError(true);
+      throw error;
     }
   };
 
@@ -1545,7 +1545,11 @@ export default function AdminDashboard() {
     const selectedTeam = teams.find((team) => team.id === form.team_id);
     const selectedSeason = seasons.find((season) => season.id === form.season_id);
     const selectedSizes = sortByOrder(sizes).filter((size) => form.size_ids.includes(size.id));
-    const inventorySizes = selectedSizes.length ? selectedSizes.map((size) => size.label) : splitCsv(defaultSizes);
+    const inventorySizes = selectedSizes.map(size => size.label);
+    if (!inventorySizes.length) throw new Error("Select at least one product size.");
+    if (kitOptions.some(kit => !Number.isSafeInteger(Number(form.variants[kit.id].price)) || Number(form.variants[kit.id].price) < 0)) throw new Error("Kit prices must be nonnegative whole AED amounts.");
+    if (!Number.isSafeInteger(basePrice) || basePrice < 0) throw new Error("Enter a nonnegative whole AED price.");
+    if (selectedTeam && selectedTeam.league_id !== form.league_id) throw new Error("Choose a team from the selected league.");
 
     if (!slug || !form.name.trim() || !selectedTeam || !selectedLeague || !selectedSeason) {
       throw new Error("Product name, league, team, and season are required.");
@@ -1593,6 +1597,7 @@ export default function AdminDashboard() {
     } catch (error) {
       setActionMessage(getErrorMessage(error));
       setActionIsError(true);
+      throw error;
     }
   };
 
@@ -1778,7 +1783,7 @@ export default function AdminDashboard() {
                 Storefront <ArrowUpRight size={13} />
               </Link>
               <Link href="/shop" className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
-                Collection preview <ArrowUpRight size={13} />
+                View storefront <ArrowUpRight size={13} />
               </Link>
             </div>
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Admin panel</p>
@@ -2959,6 +2964,7 @@ function OrderEditor({
   onSave: (form: OrderFormState) => Promise<void>;
 }) {
   const [savingOrder, setSavingOrder] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const setField = <K extends keyof OrderFormState>(key: K, value: OrderFormState[K]) => onChange({ ...form, [key]: value });
   const availableRegions = deliveryRegions[form.country as keyof typeof deliveryRegions] ?? [];
 
@@ -2971,7 +2977,7 @@ function OrderEditor({
 
   const applyProduct = (index: number, productId: string) => {
     const product = products.find((item) => item.id === productId);
-    const firstVariant = product?.product_variants?.[0];
+    const firstVariant = product?.product_variants?.find(variant => variant.available);
     const firstSize = firstVariant?.inventory?.find(isInventoryActive)?.size;
     setItem(index, {
       product_id: productId,
@@ -3001,27 +3007,29 @@ function OrderEditor({
 
   const handleSave = async () => {
     setSavingOrder(true);
+    setSaveError("");
     try {
       await onSave(form);
-    } finally {
+    } catch (error) { setSaveError(getErrorMessage(error)); }
+    finally {
       setSavingOrder(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
+    <AdminDialog label={form.id ? "Edit order" : "Add order"} onClose={onClose} busy={savingOrder} className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
       <div className="ml-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-background shadow-xl">
         <div className="flex items-center justify-between gap-4 border-b border-border p-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Order CRUD</p>
             <h2 className="mt-1 text-xl font-bold">{form.id ? "Edit order" : "Add order"}</h2>
           </div>
-          <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full border border-border">
+          <button type="button" disabled={savingOrder} aria-label="Close order editor" onClick={onClose} className="flex size-10 items-center justify-center rounded-full border border-border">
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <fieldset disabled={savingOrder} className="min-w-0 flex-1 overflow-y-auto p-5">
           {message && (
             <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${messageIsError ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-muted/40 text-muted-foreground"}`}>
               {message}
@@ -3166,16 +3174,17 @@ function OrderEditor({
             </div>
           </section>
 
-        </div>
+        </fieldset>
 
+        {saveError && <p role="alert" className="border-t border-border px-5 pt-4 text-sm text-destructive">{saveError}</p>}
         <div className="flex justify-end gap-3 border-t border-border p-5">
-          <button type="button" onClick={onClose} className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]">Cancel</button>
+          <button type="button" disabled={savingOrder} onClick={onClose} className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]">Cancel</button>
           <button type="button" onClick={handleSave} disabled={savingOrder} className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
             {savingOrder ? "Saving..." : "Save Order"}
           </button>
         </div>
       </div>
-    </div>
+    </AdminDialog>
   );
 }
 
@@ -3637,7 +3646,7 @@ function SettingsCrudPanel({
                 <FormField
                   label="Name"
                   value={editingForm.name}
-                  onChange={(value) => onChange({ ...editingForm, name: value, slug: editingForm.slug || slugify(value) })}
+                  onChange={(value) => onChange({ ...editingForm, name: value, slug: !editingForm.id && (!editingForm.slug || editingForm.slug === slugify(editingForm.name)) ? slugify(value) : editingForm.slug })}
                 />
                 <FormField label="Slug" value={editingForm.slug} onChange={(value) => onChange({ ...editingForm, slug: value })} />
               </>
@@ -3762,7 +3771,7 @@ function SettingsCrudPanel({
   );
 }
 
-function ProductEditor({
+export function ProductEditor({
   form,
   onChange,
   onClose,
@@ -3775,13 +3784,22 @@ function ProductEditor({
   form: ProductFormState;
   onChange: (form: ProductFormState) => void;
   onClose: () => void;
-  onSave: (form: ProductFormState) => void;
+  onSave: (form: ProductFormState) => Promise<void>;
   leagues: DbLeague[];
   teams: DbTeam[];
   seasons: DbSeason[];
   sizes: DbJerseySize[];
 }) {
   const [uploadingField, setUploadingField] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const busy = saving || Boolean(uploadingField);
+  const handleSave = async () => {
+    setSaving(true); setSaveError("");
+    try { await onSave(form); }
+    catch (error) { setSaveError(getErrorMessage(error)); }
+    finally { setSaving(false); }
+  };
   const [uploadMessage, setUploadMessage] = useState("");
   const selectedLeagueTeams = form.league_id ? teams.filter((team) => team.league_id === form.league_id) : teams;
   const selectedSizes = sortByOrder(sizes).filter((size) => form.size_ids.includes(size.id));
@@ -3862,19 +3880,19 @@ function ProductEditor({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
+    <AdminDialog label={form.id ? "Edit product" : "Add product"} onClose={onClose} busy={busy} className="fixed inset-0 z-[70] bg-black/45 p-4 backdrop-blur-sm">
       <div className="ml-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-background shadow-xl">
         <div className="flex items-center justify-between gap-4 border-b border-border p-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Product CRUD</p>
             <h2 className="mt-1 text-xl font-bold">{form.id ? "Edit product" : "Add product"}</h2>
           </div>
-          <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full border border-border">
+          <button type="button" disabled={busy} aria-label="Close product editor" onClick={onClose} className="flex size-10 items-center justify-center rounded-full border border-border">
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <fieldset disabled={busy} className="min-w-0 flex-1 overflow-y-auto p-5">
           {uploadMessage && (
             <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${
               uploadMessage.startsWith("Upload failed")
@@ -3886,8 +3904,7 @@ function ProductEditor({
           )}
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Name" value={form.name} onChange={(value) => {
-              setField("name", value);
-              if (!form.id && !form.slug) setField("slug", slugify(value));
+              onChange({ ...form, name: value, slug: !form.id && (!form.slug || form.slug === slugify(form.name)) ? slugify(value) : form.slug });
             }} />
             <FormField label="Slug" value={form.slug} onChange={(value) => setField("slug", value)} />
             <SearchSelectField
@@ -3901,6 +3918,8 @@ function ProductEditor({
             />
             <SearchSelectField
               label="Team"
+              disabled={!form.league_id}
+              hint={!form.league_id ? "Choose a league to load its teams." : undefined}
               value={form.team_id}
               options={selectedLeagueTeams.map((team) => ({
                 id: team.id,
@@ -4124,18 +4143,19 @@ function ProductEditor({
               </div>
             )}
           </section>
-        </div>
+        </fieldset>
 
+        {saveError && <p role="alert" className="border-t border-border px-5 pt-4 text-sm text-destructive">{saveError}</p>}
         <div className="flex justify-end gap-3 border-t border-border p-5">
-          <button type="button" onClick={onClose} className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]">
+          <button type="button" disabled={busy} onClick={onClose} className="h-11 rounded-full border border-border px-5 text-[10px] font-bold uppercase tracking-[0.14em]">
             Cancel
           </button>
-          <button type="button" onClick={() => onSave(form)} className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground">
-            Save Product
+          <button type="button" disabled={busy} onClick={() => void handleSave()} className="h-11 rounded-full bg-primary px-5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground">
+            {saving ? "Saving…" : "Save Product"}
           </button>
         </div>
       </div>
-    </div>
+    </AdminDialog>
   );
 }
 
@@ -4159,49 +4179,6 @@ function ImageUploadField({
           event.target.value = "";
         }}
       />
-    </label>
-  );
-}
-
-function SearchSelectField({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { id: string; label: string; searchText?: string }[];
-  onChange: (value: string) => void;
-}) {
-  const reactId = useId();
-  const datalistId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${reactId}`;
-  const selected = options.find((option) => option.id === value);
-
-  return (
-    <label className="grid min-w-0 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-      {label}
-      <input
-        key={`${value}-${options.length}`}
-        defaultValue={selected?.label ?? ""}
-        list={datalistId}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          const nextOption = options.find((option) => option.label === nextValue || option.searchText === nextValue);
-          onChange(nextOption?.id ?? "");
-        }}
-        onBlur={(event) => {
-          const current = options.find((option) => option.id === value);
-          event.currentTarget.value = current?.label ?? "";
-        }}
-        placeholder={`Search ${label.toLowerCase()}...`}
-        className="h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none focus:border-primary"
-      />
-      <datalist id={datalistId}>
-        {options.map((option) => (
-          <option key={option.id} value={option.label} />
-        ))}
-      </datalist>
     </label>
   );
 }

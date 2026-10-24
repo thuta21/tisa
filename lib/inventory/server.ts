@@ -1,22 +1,24 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { Product } from './types';
+import { assertSameOrigin, RequestError } from '@/lib/security/request';
 
-export async function adminClient(request?:Request) {
-  if(request && request.method!=='GET') {
-    const origin=request.headers.get('origin');
-    if(origin && origin!==new URL(request.url).origin) throw new Error('Forbidden origin');
-  }
+export async function adminContext(request?:Request) {
+  if(request) assertSameOrigin(request);
   const db=await createSupabaseServerClient();
-  const {data:{user}}=await db.auth.getUser();
-  if(!user) throw new Error('Authentication required');
-  const {data}=await db.from('profiles').select('role').eq('id',user.id).single();
-  if(data?.role!=='admin') throw new Error('Admin access required');
-  return db;
+  const {data:{user},error:authError}=await db.auth.getUser();
+  if(authError || !user) throw new RequestError('Authentication required',401);
+  const {data,error}=await db.from('profiles').select('role').eq('id',user.id).single();
+  if(error || data?.role!=='admin') throw new RequestError('Admin access required',403);
+  return {db,user};
 }
+export async function adminClient(request?:Request) { return (await adminContext(request)).db; }
 export function apiError(error:unknown) {
-  const e=error as {message?:string;code?:string};
+  if(error instanceof RequestError) return Response.json({error:error.message},{status:error.status,headers:{'Cache-Control':'private, no-store'}});
+  const e=(error??{}) as {message?:string;code?:string};
   const message=e.message??'Request failed';
-  return Response.json({error:message},{status:e.code==='40001'||e.code==='23505'?409:/Authentication/.test(message)?401:/Admin access|Forbidden/.test(message)?403:400});
+  const status=e.code==='40001'||e.code==='23505'?409:/Authentication/.test(message)?401:/Admin access|Forbidden/.test(message)?403:400;
+  const safeMessage=e.code==='23505'?'This record already exists. Reload and try again.':e.code==='23503'?'This record is linked to another record. Review the selection and try again.':e.code&&e.code!=='40001'&&e.code!=='P0001'&&e.code!=='22023'?'The database request could not be completed. Check that migrations are applied.':message;
+  return Response.json({error:safeMessage},{status,headers:{'Cache-Control':'private, no-store'}});
 }
 export async function catalog(db:Awaited<ReturnType<typeof adminClient>>) {
   const all:Product[]=[];

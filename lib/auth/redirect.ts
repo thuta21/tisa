@@ -14,6 +14,8 @@ export function getSafeRedirectPath(value: string | null | undefined, fallback =
 
 export function getSafeAdminRedirectPath(value: string | null | undefined) {
   const path = getSafeRedirectPath(value, "/admin");
+  const pathname = new URL(path, redirectBase).pathname.replace(/\/+$/, "");
+  if (pathname === "/admin/login") return "/admin";
   return path === "/admin" || path.startsWith("/admin/") || path.startsWith("/admin?")
     ? path
     : "/admin";

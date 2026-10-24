@@ -4,28 +4,47 @@ TISA is a Next.js storefront for football jerseys and name-and-number fonts. It 
 
 The current domain boundaries, transaction rules and clean-rebuild sequence are documented in [`docs/commerce-architecture.md`](docs/commerce-architecture.md).
 
+The 24 October security fixes and deployment requirements are documented in
+[`docs/security-review.md`](docs/security-review.md). Apply both the customer
+WhatsApp migration and `20261024140000_security_hardening.sql` before deploying
+this version. The latter restricts customer access to internal order columns,
+resets RPC grants and adds per-account enquiry limits. Admin order loading now
+uses the role-checked `list_admin_orders` RPC. Admin routes retain their URLs
+and are grouped under a server-verified protected layout.
+
 ## Requirements
 
-- Node.js 20+
+- Node.js 24 LTS recommended (`nvm use`); minimum 22.12
 - pnpm 10+
 - A Supabase project
 
 ## Local setup
 
-The public website currently runs as a collection preview. Cart, checkout,
-customer registration, accounts, fonts and public pricelists show an ordering
-unavailable notice. Prices, purchase controls and delivery/payment promises are
-removed from the public collection. Admin catalog and inventory tools remain
-available at `/admin/login`.
+Customer registration, login and accounts are enabled. On each product, customers
+choose a kit, size and quantity, then use **Order Now** to open a WhatsApp enquiry
+with their name, phone, product details and price. The customer taps Send in
+WhatsApp. This does not reserve stock, charge a payment or create a confirmed
+website order. Existing admin order management remains available.
 
-Apply `supabase/migrations/20261008120000_pause_public_checkout.sql` to the
-connected hosted project before deploying this preview. It revokes customer
-access to `create_checkout_order`, including direct Supabase calls from old
-clients, without changing existing records or admin order-management access.
-The application publishable key cannot apply this migration; use a trusted
-Supabase SQL Editor or authenticated database migration workflow. Reopening
-orders requires an explicit database grant and restoring the storefront UI
-after licensing and operational review.
+Apply `supabase/migrations/20261024120000_customer_whatsapp_ordering.sql` before
+running this version against an existing database. In **Admin → Settings →
+WhatsApp Numbers**, add at least one international number and mark it Available.
+The available number with the lowest priority value receives new enquiries;
+equal priorities use the oldest number. Routing and current stock are checked
+again by the server on every Order Now click. No available contact produces a
+clear unavailable message; the environment support number is not a routing fallback.
+
+The earlier checkout RPC remains disabled by
+`20261008120000_pause_public_checkout.sql`. This version uses WhatsApp enquiries
+and does not re-enable online checkout or payment collection. Customers can edit
+only their own name and phone through `update_customer_profile`; roles remain
+admin-controlled. Supabase email authentication must be enabled, with production
+and local `/auth/callback` URLs in the Auth redirect allowlist. Google login is
+optional via `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH` and requires a configured provider.
+
+Set `NEXT_PUBLIC_SITE_URL` to the production origin for canonical URLs, Open Graph,
+JSON-LD and sitemap entries. Favicons and Apple touch icons use the existing TISA
+logo. Product structured data reflects the displayed kit prices and stock.
 
 ```bash
 pnpm install
@@ -188,8 +207,9 @@ pnpm supabase:types   # refresh local generated database types
 ## Public collection rendering and SEO
 
 Home, collection and jersey detail pages render their initial catalog on the server,
-with route skeletons during loading. Public preview queries omit prices and
-size-level inventory; commerce and admin queries keep their existing data.
+with route skeletons during loading. Public catalog queries include prices and
+size-level inventory availability, while excluding private operational fields.
+Commerce and admin queries keep their existing data.
 Product metadata and page rendering share one request-scoped lookup.
 
 Set `NEXT_PUBLIC_SITE_URL` to the public production origin (for example,

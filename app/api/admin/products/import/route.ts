@@ -1,3 +1,4 @@
+import { readJson, readUpload } from "@/lib/security/request";
 import {createHash} from 'node:crypto';
 import {adminClient,apiError,catalog} from '@/lib/inventory/server';
 import {parseProductImportFile,type ProductImportReference} from '@/lib/product-import';
@@ -5,7 +6,7 @@ import {checkWorkbookSize} from '@/lib/inventory/workbook';
 export async function POST(request:Request){try{
   const db=await adminClient(request);
   if(Number(request.headers.get('content-length')??0)>10*1024*1024+65536)throw new Error('Maximum file size is 10 MB.');
-  const form=await request.formData();const file=form.get('file');if(!(file instanceof File)||file.size>10*1024*1024)throw new Error('Choose an Excel file up to 10 MB.');
+  const form=await readUpload(request);const file=form.get('file');if(!(file instanceof File)||file.size>10*1024*1024)throw new Error('Choose an Excel file up to 10 MB.');
   const bytes=new Uint8Array(await file.arrayBuffer());checkWorkbookSize(bytes);
   const results=await Promise.all([db.from('leagues').select('*'),db.from('teams').select('*,leagues(name)'),db.from('seasons').select('*'),db.from('jersey_sizes').select('*')]);
   for(const result of results)if(result.error)throw result.error;
@@ -28,4 +29,4 @@ export async function POST(request:Request){try{
   }
   return Response.json({...preview,id});
 }catch(e){return apiError(e);}}
-export async function PUT(request:Request){try{const db=await adminClient(request);const {id}=await request.json();const {data,error}=await db.rpc('commit_catalog_import',{p_id:id});if(error)throw error;return Response.json(data);}catch(e){return apiError(e);}}
+export async function PUT(request:Request){try{const db=await adminClient(request);const {id}=await readJson(request);const {data,error}=await db.rpc('commit_catalog_import',{p_id:id});if(error)throw error;return Response.json(data);}catch(e){return apiError(e);}}
