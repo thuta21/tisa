@@ -4,6 +4,8 @@ import { getSiteUrl } from "@/lib/site";
 import { AuthProvider } from "@/lib/AuthContext";
 import { getNonce } from "@/lib/security/nonce";
 import { serializeJsonLd } from "@/lib/seo";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
+import { getAnalyticsConfig } from "@/lib/analytics-config";
 
 export const metadata: Metadata = {
   metadataBase: getSiteUrl(),
@@ -33,7 +35,7 @@ export default async function RootLayout({
             { "@type": "WebSite", "@id": `${site}#website`, name: "TISA", url: site.href, publisher: { "@id": `${site}#organization` } },
           ],
         }) }} />}
-        <AuthProvider>{children}</AuthProvider>
+        <AnalyticsProvider config={getAnalyticsConfig(process.env)} nonce={nonce}><AuthProvider>{children}</AuthProvider></AnalyticsProvider>
       </body>
     </html>
   );

@@ -46,6 +46,14 @@ Set `NEXT_PUBLIC_SITE_URL` to the production origin for canonical URLs, Open Gra
 JSON-LD and sitemap entries. Favicons and Apple touch icons use the existing TISA
 logo. Product structured data reflects the displayed kit prices and stock.
 
+Production uses GA4 measurement ID `G-HZEBCV1FMR` only after the visitor allows
+analytics. Page views, product views and WhatsApp handoff attempts exclude
+customer contact details. The footer includes Analytics preferences; private
+routes, localhost and preview deployments do not collect measurements. See
+[`docs/google-analytics-plan.md`](docs/google-analytics-plan.md) for configuration,
+required GA4 settings and Realtime verification. An empty
+`NEXT_PUBLIC_GA_MEASUREMENT_ID` disables Analytics.
+
 ```bash
 pnpm install
 cp .env.example .env.local

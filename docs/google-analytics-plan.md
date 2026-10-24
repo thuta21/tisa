@@ -1,8 +1,15 @@
-# Google Analytics plan for TISA
+# Google Analytics for TISA
 
-Status: proposed configuration only. Google Analytics is not installed or enabled
-by this document. A GA4 web-stream measurement ID and the agreed privacy choices
-are needed before implementation.
+Implemented for GA4 measurement ID `G-HZEBCV1FMR`, Web stream `16194158656`.
+The stream number is account metadata; browser tagging uses the `G-…` ID.
+The owner confirmed on 24 October 2026 that automatic browser-history page views,
+outbound clicks, site search and form interactions were switched off in GA4.
+
+Analytics is opt-in. Google receives no tag request or measurement event until
+this browser chooses **Allow analytics**. The footer's **Analytics preferences**
+button lets visitors change that choice. Consent is remembered for 180 days.
+On withdrawal, Analytics cookies are cleared and the document reloads to dispose
+of Google's timers and listeners.
 
 ## Account setup
 
@@ -24,25 +31,32 @@ are needed before implementation.
 5. Start without advertising features or Google signals. Agree on the site's
    consent behavior and privacy notice before enabling analytics collection.
 
-## Recommended implementation
+## Implementation
 
-Use the Google tag directly for the current scope. Tag Manager can be considered
-later if the business needs several independently managed marketing tags.
+The application loads the Google tag directly, with the existing response nonce.
+`AnalyticsProvider` manages consent and navigation; `lib/analytics.ts` builds
+allowlisted payloads. It uses the public measurement ID above by default.
 
-- Add a validated `NEXT_PUBLIC_GA_MEASUREMENT_ID` deployment variable when the
-  integration exists. An absent ID should leave tracking disabled. Enable it only
-  on the production storefront; previews and localhost should not pollute reports.
-- Keep admin, account, login, registration, recovery and auth callback activity
-  outside tracking. Handle client-side navigation into and out of these routes,
-  rather than assuming a script in the root layout disappears on navigation.
-- Use explicit storefront page views with sanitized locations and referrers.
-  Never include auth tokens, profile information or arbitrary query strings.
-- Preserve the existing nonce CSP. Pass the nonce to the Google tag and permit
-  only the additional Analytics connections required for the chosen features.
-  Do not add `unsafe-inline` or `unsafe-eval` to production script policy.
-- If using an opt-in model, do not load the tag or send collection requests until
-  consent. Provide a way to change the preference. Confirm the final behavior
-  against the applicable business requirements before implementation.
+`NEXT_PUBLIC_GA_MEASUREMENT_ID` can override that public ID. Set it to an empty
+string to disable Analytics. Collection requires `VERCEL_ENV=production`, a valid
+ID, explicit consent, an allowed storefront path and a browser origin matching
+`NEXT_PUBLIC_SITE_URL` (default `https://tisa-iota.vercel.app`). Localhost and
+Preview builds do not collect measurements. No new deployment secret is needed.
+
+- Account, admin, login, registration, recovery and callback routes are excluded.
+  A client navigation from an active Analytics session into a private route
+  disables collection and reloads into a fresh document without the Google tag.
+- Page views contain only an allowlisted public path; queries and fragments are
+  omitted. Initial referrers are reduced to their HTTPS origin, while subsequent
+  storefront referrers use the previously measured sanitized path. Page titles
+  use the fixed public label TISA. Duplicate initial/history views are avoided.
+- Product views are deduplicated for the current route and variant. The order
+  handoff waits for the event callback with a 700 ms maximum fallback, so an ad
+  blocker or slow Google connection cannot stop WhatsApp navigation.
+- Google signals and ad personalization are disabled in the configuration; ad
+  storage, ad user data and ad personalization consent remain denied.
+- The script carries the CSP nonce. Analytics connection/image endpoints are
+  permitted without adding `unsafe-inline` or `unsafe-eval` to script policy.
 
 | Event | Trigger | Allowed context |
 | --- | --- | --- |
@@ -59,9 +73,16 @@ Never send customer names, phone numbers, emails, addresses, free-text messages,
 auth tokens or the generated WhatsApp URL to Analytics. Automatic outbound-click
 measurement includes `link_url`; the current `wa.me` URL contains a prefilled
 message with customer information, so unrestricted automatic click tracking is
-unsuitable here.
+unsuitable here. The fallback control now uses a button and keeps the private
+WhatsApp URL out of link attributes.
 
-## Verification before enabling collection
+## Verification
+
+Automated tests cover opt-in, denial, expiry, unavailable storage, private-route
+exclusion, origin/production gating, nonce loading, deduplication, safe payloads,
+cookie removal and the bounded handoff wait.
+
+Account-side verification still requires the owner to view Google Analytics:
 
 - Use DebugView and Realtime to confirm one page view per storefront navigation
   and one handoff event per successful preparation.

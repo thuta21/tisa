@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPriceAED } from "@/lib/jerseys";
 import type { CatalogJerseyKit } from "@/lib/products";
 import { validateCustomerProfile } from "@/lib/customer-profile";
+import { trackWhatsAppHandoff } from "@/lib/analytics";
 
 export default function WhatsAppOrderForm({ kit, kitId, productSlug, size, onSizeChange }: {
   kit: CatalogJerseyKit | null; kitId: string | null; productSlug: string; size: string; onSizeChange: (value: string) => void;
@@ -52,6 +53,7 @@ export default function WhatsAppOrderForm({ kit, kitId, productSlug, size, onSiz
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Unable to prepare your order.");
       setHandoff(data);
+      if (kit?.variantId) await trackWhatsAppHandoff({ itemId: kit.variantId, name: kit.variantName ?? productSlug, variant: kitId, size, quantity, price: kit.price });
       window.location.assign(data.url);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to open WhatsApp. Please try again."); }
     finally { setBusy(false); }
@@ -78,7 +80,7 @@ export default function WhatsAppOrderForm({ kit, kitId, productSlug, size, onSiz
         <button disabled={busy || !size || quantity < 1 || quantity > Math.min(99, available)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"><MessageCircle size={18} />{busy ? "Preparing WhatsApp…" : "Order Now"}</button>
       </form>}
     {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-    {handoff && <a href={handoff.url} rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary">Open WhatsApp with {handoff.contact} again</a>}
+    {handoff && <button type="button" onClick={() => window.location.assign(handoff.url)} className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary">Open WhatsApp with {handoff.contact} again</button>}
     <p className="mt-4 text-xs leading-6 text-muted-foreground">Order Now opens WhatsApp with your name, phone and selected product details. Tap Send in WhatsApp to contact our available team. Stock, delivery and payment are confirmed by the team; opening WhatsApp does not reserve stock or place a confirmed order.</p>
   </div>;
 }

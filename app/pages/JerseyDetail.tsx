@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PreviewImage from "@/components/jersey/PreviewImage";
 import Link from "next/link";
 import { ChevronRight, Ruler, ZoomIn } from "lucide-react";
@@ -13,6 +13,7 @@ import WhatsAppOrderForm from "@/components/jersey/WhatsAppOrderForm";
 import { kitOptions, type KitVariant } from "@/lib/jerseys";
 import { getCatalogPreviewKit, isCatalogKitPreviewAvailable, type CatalogJersey } from "@/lib/products";
 import { getJerseySleeve, sleeveOptions } from "@/lib/product-sleeves";
+import { ANALYTICS_READY_EVENT, trackProductEvent } from "@/lib/analytics";
 
 export default function JerseyDetail({ jersey, alternatives, related = [], initialKit, initialSize = "" }: { jersey: CatalogJersey; alternatives: CatalogJersey[]; related?: CatalogJersey[]; initialKit?: KitVariant; initialSize?: string }) {
   const kits = kitOptions.filter((kit) => isCatalogKitPreviewAvailable(jersey, kit.id));
@@ -29,6 +30,14 @@ export default function JerseyDetail({ jersey, alternatives, related = [], initi
   const image = (activeSide === "back" ? kit?.imageBack : kit?.image) ?? "/assets/jersey-placeholder.svg";
   const imageAlt = activeKit ? `${jersey.name}, ${activeKit} kit, ${activeSide} view` : `${jersey.name}, kit preview unavailable`;
   const sleeve = getJerseySleeve(jersey);
+
+  useEffect(() => {
+    if (!kit?.variantId) return;
+    const view = () => trackProductEvent("view_item", { itemId: kit.variantId!, name: jersey.name, variant: activeKit, price: kit.price });
+    view();
+    window.addEventListener(ANALYTICS_READY_EVENT, view);
+    return () => window.removeEventListener(ANALYTICS_READY_EVENT, view);
+  }, [kit, jersey.name, activeKit]);
 
   return (
     <div className="tisa-page-surface flex min-h-screen flex-col text-foreground">

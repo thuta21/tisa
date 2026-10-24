@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { AnalyticsPreferencesButton } from "@/components/analytics/AnalyticsProvider";
 
 const footerLinks = [
   { href: "/shop", label: "Collection" },
@@ -30,6 +31,7 @@ export default function Footer() {
               {item.label}
             </Link>
           ))}
+          <AnalyticsPreferencesButton />
         </nav>
       </div>
     </footer>
